@@ -14,12 +14,14 @@
 6. [Thanks](#6-thanks)
 
 # Overview
-Before switching ISPs, I had a public IP that allowed me to use port forwarding on my router to pass traffic to services hosted on my internal network.  My new ISP uses a CGNAT, so I had to find a solution.  I chose this path, because it keeps pretty puch everything the same on my services.  The main things I wanted to do with my setup were:
+Before switching ISPs, I had a public IP that allowed me to use port forwarding on my router to pass traffic to services hosted on my internal network.  My new ISP uses a CGNAT, so I had to find a workaround.  I chose this path, because it keeps pretty much everything the same for my services.  The main things I wanted to do with my setup were:
 * Forward only specific traffic from the internet to my services
-* Provide my NPM (Nginx Proxy Manager) Server with clients real IPs (for blocking purposes)
-* Allow for traffic to flow internal services that NPM doesn't manage
+* Provide my NPM (Nginx Proxy Manager) Server with clients real IPs (for fail2ban blocking purposes)
+* Allow for traffic to flow to internal services that NPM doesn't manage
 
-I went through a couple configurations and VPS providers before I created this solution.  Prior to attempting this, I had little to no knowledge about VPS providers, wireguard, ufw, and iptables.  This will hopefully be a useful tutorial for people who are in a similar situation.  This tutorial assumes you have some basic knowledge about how to use Ubuntu from the command line.
+I went through a couple configurations and VPS providers before I created this solution.  Prior to attempting this, I had little to no knowledge about VPS providers, wireguard, ufw, and iptables.  Getting it to work the way I wanted took a few days of research, trial, and error.
+This will hopefully be a useful tutorial for people who are in a similar situation.  
+This tutorial assumes you have some basic knowledge about how to use Ubuntu from the command line.
 
 Here is a basic diagram of my configuration.  The IPs and ports will need to be changed by you to meet your requirements.
 
@@ -29,18 +31,18 @@ For reference, here are all the IPs, Ports, and Names that I will be using in th
 
 Name | IP used in tutorial | Port | Description
 ------------ | ------------- | ------------- | -------------
-VPS IP | 1.2.3.4 | N/A | Your VPS's IP (Assigned to you)
+VPS IP | 1.2.3.4 | N/A | Your VPS's IP Address (Assigned to you)
 VPS Wireguard IP | 10.0.0.1 | 55107 | The Wireguard IP:Port we will set up in our VPN connection (Created by you)
-Nginx IP | 192.168.2.5 | 443 | The Local IP of our NPM Server (Should already exist in your local network)
-Nginx Wireguard IP | 10.0.0.2 | N/A | The Wireguard IP we will use to talk with the VPS Server (Created by you)
+Nginx IP | 192.168.2.5 | 443 | The Local IP Address of our NPM Server (Should already exist in your local network)
+Nginx Wireguard IP | 10.0.0.2 | N/A | The Wireguard IP Address we will use to talk with the VPS Server (Created by you)
 Home Assistant IP | 192.168.2.6 | 1234 | The IP:Port of another service that NPM doesn't provide routing for (Should already exist / Home Assistant is just an example)
 Synology NAS | 192.168.2.4 | 5001 | The IP:Port of another service that NPM doesn't provide routing for (Should already exist / Synology NAS is just an example)
 Docker Server App | 192.168.2.7 | 1194 | The IP:Port of another service that NPM doesn't provide routing for (Should already exist / OpenVPN is an example)
 
 # 1. VPS Setup
-I am using [Digital Ocean](https://www.digitalocean.com/) as my VPS provider.  I tried using Hostinger before since it was cheaper, but since they use OpenVZ for their virtualization, I couldn't get wireguard to work properly on it.  I am using their cheapest droplet which runs around $6 a month. 
+I am using [Digital Ocean](https://www.digitalocean.com/) as my VPS provider.  I tried using Hostinger before since it was cheaper, but since they use OpenVZ for their virtualization, I couldn't get wireguard to work properly on it.  I am using Digital Ocean's cheapest droplet which runs around $6 a month. 
 If you want to use Digital Ocean, [here is a tutorial](https://www.digitalocean.com/docs/droplets/how-to/create/) on how to set up a droplet.  I am using Ubuntu 20.04 on mine, but wireguard should work with 18.04 as well.
-After you have your droplet set up, you should see your given IP.  You should use that for all instances you see here of "VPS IP".
+After you have your droplet set up, you should see the IP of your VPS.  You should use that for all instances you see here of "VPS IP".
 
 ## 1a. Locking down your server
 I recommend following a system hardening guide like [this one](https://www.digitalocean.com/community/tutorials/how-to-harden-openssh-on-ubuntu-18-04) or [this one](https://medium.com/@jasonrigden/hardening-ssh-1bcb99cd4cef).  After this, I will assume you have kept sshd running on port 22.  If you changed the port, pay attention in the following steps and adjust as appropriate.
@@ -49,7 +51,7 @@ Enable forwarding by running:
 ```bash
 sudo nano /etc/sysctl.conf
 ```
-Make sure `net.ipv4.ip_forward=1` is uncommented, save the file then run:
+Make sure `net.ipv4.ip_forward=1` is not commented, save the file then run:
 ```bash
 sudo sysctl -p
 ```
@@ -69,7 +71,7 @@ sudo nano /etc/wireguard/wg0.conf
 **Things you need to change:**
 Name | Item | Description
 --- | --- | ---
-*VPS IP* | 1.2.3.4 | The IP of your VPS
+*VPS IP* | 1.2.3.4 | The IP Address of your VPS
 *interface* | eth0 | Your internet facing interface.
 
 **Things you can change:**
@@ -79,7 +81,7 @@ Name | Item | Description
 *Wireguard Port* | 55107 | Any unused port you like
 *Wireguard Server IP* | 10.0.0.1/24 | Any RFC1918 IP/CIDR.  Don't you your home network's IPs (192.168.2.0/24 in this tutorial).
 *Wireguard Host IP* | 10.0.0.2 | Same as above, make sure it's in the same address range.
-*Wireguard Host IP/32* | 10.0.0.2/32 | The above IP with /32 after it.
+*Wireguard Host IP/32* | 10.0.0.2/32 | The above IP Address with /32 after it.
 ```
 [Interface]
 PrivateKey = SHOULD_ALREADY_BE_FILLED_OUT
@@ -98,8 +100,8 @@ AllowedIPs = 10.0.0.2/32
 ```
 We will fill in the PublicKey section after we install Wireguard on our local server.
 
-For your inforamtion, the PostUp and PostDown commands will run when wireguard makes/looses connection.
-The first PostUp command will forward all TCP traffic (except our SSH traffic on port 22) through the wireguard VPN to our server without changing any of the IP addresses.
+For your inforamtion, the PostUp and PostDown commands will run when wireguard makes/loses connection.
+The first PostUp command will forward all TCP traffic (except our SSH traffic on port 22) through the wireguard VPN to our server without changing any of the incomming IP addresses.
 The second PostUp command will do the same with UDP traffic (except our wireguard traffic on port 55107).
 The PostDown commands just remove what was created with the PostUp commands.
 
@@ -129,7 +131,7 @@ sudo nano /etc/wireguard/wg0.conf
 **Things you need to change:**
 Name | Item | Description
 --- | --- | ---
-*Peer PublicKey* | THE_PUBLIC_KEY_FROM_YOUR_VPS_WIREGUARD_INSTALL | The public key you copied when installing wireguard on the **VPS**.
+*PublicKey* | THE_PUBLIC_KEY_FROM_YOUR_VPS_WIREGUARD_INSTALL | The public key you copied when installing wireguard on the **VPS**.
 
 **Things you may have to change:**
 
@@ -165,6 +167,7 @@ Lets say you have Home Assistant running on port 1234 on a different server (IP 
  * The third PostUp command will route all (udp) traffic from the VPN on port 1194 to 192.168.2.7
 
 The postDown commands are exactly the same as the PostUp couterparts except that '-A' becomes '-D'.
+If you have more services you want to forward traffic to, just add another PostUp command and change the IP address and port as appropriate.  Don't forget to add the similar PostDown command.
 
 # 3. Starting Wireguard
 On both the VPS and Local Server, run:
@@ -182,9 +185,12 @@ sudo systemctl enable wg-quick@wg0
 on both machines to ensure that wireguard automatically starts.
 
 # 4. Limiting Access
-So now, any requests coming into your VPS will be sent to your home server.  Lets say you only have services running on 443(https for nginx), 1234(Home Assistant), 5001(Synology), and 1194 UDP(OpenVPN).  There is no reason for any other port to be open on your VPS (except 22, and 55107).  So we will use ufw to block all other access.
+So now, any requests coming into your VPS will be sent to your home server.  
+
+Lets say you only have services running on 443(https for nginx), 1234(Home Assistant), 5001(Synology), and 1194 UDP(OpenVPN).  There is no reason for any other port to be open on your VPS (except 22, and 55107).  So we will use ufw to block all other access.
 On your VPS, run the following commands (using your ports):
-**If you aren't using 22 as the sshd port, make sure you change the first line to match your port.  If you don't; as soon as you enable ufw, you will be locked out of your VPS**
+
+**Note: If you aren't using 22 as the sshd port, make sure you change the first line to match your port.  If you don't; as soon as you enable ufw, you will be locked out of your VPS**
 ```bash
 sudo ufw allow OpenSSH
 sudo ufw allow 55107
@@ -199,7 +205,10 @@ sudo ufw enable
 
 On your Local Server, if you have ufw enabled, make sure you open up the same ports as you have on your VPS.  Also be sure to run ```sudo default allow routed```.  If ufw is disabled/not installed, then you don't need to worry.
 
-I recommend installing fail2ban on both your Local Server and your VPS.  The VPS fail2ban will handle your ssh and the one on the local server can handle the others.  That's why I set it up so that all the Original IPs are sent through the VPN, so I can still block them.
+I recommend installing fail2ban on both your Local Server and your VPS.  The VPS fail2ban will handle your ssh and the one on the local server can handle the others.  That's why I set it up so that all the Original IP addresses are sent through the VPN, so I can still block them.
+
+**Original IP Address Limitations**
+While all the traffic coming in to your local server has the opriginal IPs intact, the traffice that is forwarded to our other services via the PostUp iptables command (i.e. Home Assistant, Synology, ...) will have their IPs look like they're coming from your local NPM server.  This wasn't a problem for me since I don't run fail2ban on those extra services.
 
 # 5. All Done / References
 
