@@ -2,12 +2,12 @@
 
 ## Contents
 1. [VPS Setup](#1-vps-setup)
-1a. [Locking down your server](#1a-locking-down-your-server)
-1b. [System config](#1b-system-config)
-1c. [Installing Wireguard](#1c-installing-wireguard)
+   1. [Locking down your server](#1a-locking-down-your-server)
+   2. [System config](#1b-system-config)
+   3. [Installing Wireguard](#1c-installing-wireguard)
 2. [Home Server Setup](#2-home-server-setup)
-2a. [System Config](#2a-system-config)
-2b. [Installing Wireguard](#2b-installing-wireguard)
+   1. [System Config](#2a-system-config)
+   2. [Installing Wireguard](#2b-installing-wireguard)
 3. [Starting Wireguard](#3-starting-wireguard)
 4. [Limiting Access](#4-limiting-access)
 5. [All Done/References](#5-all-done-references)
