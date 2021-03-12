@@ -10,8 +10,9 @@
    2. [Installing Wireguard](#2b-installing-wireguard)
 3. [Starting Wireguard](#3-starting-wireguard)
 4. [Limiting Access](#4-limiting-access)
-5. [All Done/References](#5-all-done-references)
-6. [Thanks](#6-thanks)
+5. [Optional Extras](#5-optional-extras)
+6. [All Done/References](#6-all-done-references)
+7. [Thanks](#7-thanks)
 
 # Overview
 Before switching ISPs, I had a public IP that allowed me to use port forwarding on my router to pass traffic to services hosted on my internal network.  My new ISP uses a CGNAT, so I had to find a workaround.  I chose this path, because it keeps pretty much everything the same for my services.  The main things I wanted to do with my setup were:
@@ -43,6 +44,8 @@ Docker Server App | 192.168.2.7 | 1194 | The IP:Port of another service that NPM
 I am using [Digital Ocean](https://www.digitalocean.com/) as my VPS provider.  I tried using Hostinger before since it was cheaper, but since they use OpenVZ for their virtualization, I couldn't get wireguard to work properly on it.  I am using Digital Ocean's cheapest droplet which runs around $6 a month. 
 If you want to use Digital Ocean, [here is a tutorial](https://www.digitalocean.com/docs/droplets/how-to/create/) on how to set up a droplet.  I am using Ubuntu 20.04 on mine, but wireguard should work with 18.04 as well.
 After you have your droplet set up, you should see the IP of your VPS.  You should use that for all instances you see here of "VPS IP".
+
+***This tutorial will assume you are running Ubuntu 20.04 on both your VPS and Local Server.***
 
 ## 1a. Locking down your server
 I recommend following a system hardening guide like [this one](https://www.digitalocean.com/community/tutorials/how-to-harden-openssh-on-ubuntu-18-04) or [this one](https://medium.com/@jasonrigden/hardening-ssh-1bcb99cd4cef).  After this, I will assume you have kept sshd running on port 22.  If you changed the port, pay attention in the following steps and adjust as appropriate.
@@ -104,6 +107,8 @@ For your inforamtion, the PostUp and PostDown commands will run when wireguard m
 The first PostUp command will forward all TCP traffic (except our SSH traffic on port 22) through the wireguard VPN to our server without changing any of the incomming IP addresses.
 The second PostUp command will do the same with UDP traffic (except our wireguard traffic on port 55107).
 The PostDown commands just remove what was created with the PostUp commands.
+
+**Note for AWS Users:  I have been told that AWS provides you with both a public and private IP.  They said that in order to get the interface working, you need to use the AWS private IP in the VPS config file.**
 
 # 2. Home Server Setup
 ## 2a. System config
@@ -210,17 +215,51 @@ I recommend installing fail2ban on both your Local Server and your VPS.  The VPS
 **Original IP Address Limitations**
 While all the traffic coming in to your local server has the opriginal IPs intact, the traffice that is forwarded to our other services via the PostUp iptables command (i.e. Home Assistant, Synology, ...) will have their IPs look like they're coming from your local NPM server.  This wasn't a problem for me since I don't run fail2ban on those extra services.
 
-# 5. All Done / References
+# 5. Optional Extras
+If you want to maintain a more hands off style of administration on your VPS, you can enable unattended upgrades.  Just as the name sounds, this will automatically install security upgrades on your VPS.
+Steps:
+1. `sudo apt install unattended-upgrades`
+2. `sudo nano /etc/apt/apt.conf.d/50unattended-upgrades`
+   1. Uncomment the line that contains `"${distro_id}:${distro_codename}-updates";` ***should be near the top of the file***
+   2. If you want to be emailed when a package is upgraded, or if an error occurs uncomment `Unattended-Upgrade::Mail "your@email.com";` and `Unattended-Upgrade::MailReport "only-on-error";`.  Change the `"only-on-error"` as appropriate.
+   3. There are other settings you can change if you like.  For example, you can have the system automatically reboot at a specific time if an update requires it.  Look through the `50unattended-upgrades` file to see what you can enable.
+3. `sudo nano /etc/apt/apt.conf.d/20auto-upgrades` and paste the following into it.
+```
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Download-Upgradeable-Packages "1";
+APT::Periodic::AutocleanInterval "7";
+APT::Periodic::Unattended-Upgrade "1";
+```
+Those numbers specifiy the number of days between each update/sutoclean/download attempt.  Feel free to change as appropriate.
+
+Unattended-upgrades is now installed and configured on your system.
+
+If you would like to test to see if it is working, run:
+`sudo unattended-upgrades --dry-run --debug`
+You may see a bunch of regexp, but look near the bottom.  There should be a line stating that you have packages that can be upgraded or all your packages are up to date.
+
+Example:
+```
+Packages blacklist due to conffile prompts: []
+No packages found that can be upgraded unattended and no pending auto-removals
+The list of kept packages can't be calculated in dry-run mode.
+```
+You can also check your log files (after a couple days) by running `cat /var/log/unattended-upgrades/unattended-upgrades.log`.
+
+
+# 6. All Done / References
 
 The last thing you need to do is point your DNS records to the VPS IP.  That is outside the scope of this tutorial.
 
 Here are the websites I used to come up with my own solution.  If you run into problems, look through these to see if you can find a solution.
-[How to setup a wireguard server](https://www.cyberciti.biz/faq/ubuntu-20-04-set-up-wireguard-vpn-server/)
-[Set up a wireguard vpn on ubuntu](https://www.linode.com/docs/guides/set-up-wireguard-vpn-on-ubuntu/)
-[Expose server behind NAT with Wireguard and a VPS](https://golb.hplar.ch/2019/01/expose-server-vpn.html)
-[Wireguard site to site](https://gist.github.com/insdavm/b1034635ab23b8839bf957aa406b5e39)
-[My config for bypassing CGNAT with VPS](https://www.reddit.com/r/WireGuard/comments/duif1e/my_config_for_bypassing_cgnat_with_vps/)
-[Bypass CGNAT, public access to home services](https://www.reddit.com/r/WireGuard/comments/blcxb2/bypass_cgnat_public_access_to_home_services/)
+* [How to setup a wireguard server](https://www.cyberciti.biz/faq/ubuntu-20-04-set-up-wireguard-vpn-server/)
+* [Set up a wireguard vpn on ubuntu](https://www.linode.com/docs/guides/set-up-wireguard-vpn-on-ubuntu/)
+* [Expose server behind NAT with Wireguard and a VPS](https://golb.hplar.ch/2019/01/expose-server-vpn.html)
+* [Wireguard site to site](https://gist.github.com/insdavm/b1034635ab23b8839bf957aa406b5e39)
+* [My config for bypassing CGNAT with VPS](https://www.reddit.com/r/WireGuard/comments/duif1e/my_config_for_bypassing_cgnat_with_vps/)
+* [Bypass CGNAT, public access to home services](https://www.reddit.com/r/WireGuard/comments/blcxb2/bypass_cgnat_public_access_to_home_services/)
+* [Automatic Security Updates](https://help.ubuntu.com/community/AutomaticSecurityUpdates)
+* [How to set up automatic upgrades](https://libre-software.net/ubuntu-automatic-updates/)
 
-# 6. Thanks!
+# 7. Thanks!
 If you want to use Digital Ocean as your VPS, please use this [referral link](https://m.do.co/c/7680995597d6).  You'll get $100 worth of credit over 60 days and I'll get $25 worth of service credit to keep my VPS up.  Thanks.
