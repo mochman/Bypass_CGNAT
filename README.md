@@ -244,7 +244,7 @@ Packages blacklist due to conffile prompts: []
 No packages found that can be upgraded unattended and no pending auto-removals
 The list of kept packages can't be calculated in dry-run mode.
 ```
-You can also check your log files (after a couple days) by running `cat /var/log/unattended-upgrades/unattended-upgrades.log`.
+You can also check your log files (after a couple days) by running `sudo cat /var/log/unattended-upgrades/unattended-upgrades.log`.
 
 
 # 6. All Done / References
