@@ -11,8 +11,9 @@
 3. [Starting Wireguard](#3-starting-wireguard)
 4. [Limiting Access](#4-limiting-access)
 5. [Optional Extras](#5-optional-extras)
-6. [All Done/References](#6-all-done-references)
-7. [Thanks](#7-thanks)
+6. [Troubleshooting](#6-troubleshooting)
+7. [All Done/References](#7-all-done-references)
+8. [Thanks](#8-thanks)
 
 # Overview
 Before switching ISPs, I had a public IP that allowed me to use port forwarding on my router to pass traffic to services hosted on my internal network.  My new ISP uses a CGNAT, so I had to find a workaround.  I chose this path, because it keeps pretty much everything the same for my services.  The main things I wanted to do with my setup were:
@@ -213,7 +214,7 @@ On your Local Server, if you have ufw enabled, make sure you open up the same po
 I recommend installing fail2ban on both your Local Server and your VPS.  The VPS fail2ban will handle your ssh and the one on the local server can handle the others.  That's why I set it up so that all the Original IP addresses are sent through the VPN, so I can still block them.
 
 **Original IP Address Limitations**
-While all the traffic coming in to your local server has the opriginal IPs intact, the traffice that is forwarded to our other services via the PostUp iptables command (i.e. Home Assistant, Synology, ...) will have their IPs look like they're coming from your local NPM server.  This wasn't a problem for me since I don't run fail2ban on those extra services.
+While all the traffic coming in to your local server has the original IPs intact, the traffice that is forwarded to our other services via the PostUp iptables command (i.e. Home Assistant, Synology, ...) will have their IPs look like they're coming from your local NPM server.  This wasn't a problem for me since I don't run fail2ban on those extra services.
 
 # 5. Optional Extras
 If you want to maintain a more hands off style of administration on your VPS, you can enable unattended upgrades.  Just as the name sounds, this will automatically install security upgrades on your VPS.
@@ -247,8 +248,26 @@ The list of kept packages can't be calculated in dry-run mode.
 ```
 You can also check your log files (after a couple days) by running `sudo cat /var/log/unattended-upgrades/unattended-upgrades.log`.
 
+# 6. Troubleshooting
 
-# 6. All Done / References
+While figuring all this out, I needed to check if traffic was actually getting to my Local Server through the VPN.  I used python's http.server for this.  It sets up a simple web server that you can set to any open port.
+
+I was able to run it from the command line: `sudo python3 -m http.server 443`
+
+Looking back on it though, running that command allows anyone that happens to type in https://YOUR_VPS_IP/ with a page that lists all the files in your directory.  So a more safe test would be to run it in it's own folder with a default index.html page like so:
+```bash
+mkdir temp_dir
+cd temp_dir
+echo "Working" > index.html
+sudo python3 -m http.server PORT_YOU_WANT_TO_TEST
+```
+With that web server running, you should be able to go to http://VPS_IP:PORT_YOU_WANT_TO_TEST and see a page that says "Working".  That way you know that the traffic is getting routed to your local server, so you know where to focus your efforts.
+
+**Note 1: Make sure the PORT you put in is not being used on your local server already.**
+**Note 2: You will need to comment out the PostUp in your local server's wg0.config file and run a `sudo systemctl restart wg-quick@wg0` in order to make sure the iptables rules have been cleared.**
+
+
+# 7. All Done / References
 
 The last thing you need to do is point your DNS records to the VPS IP.  That is outside the scope of this tutorial.
 
@@ -262,5 +281,5 @@ Here are the websites I used to come up with my own solution.  If you run into p
 * [Automatic Security Updates](https://help.ubuntu.com/community/AutomaticSecurityUpdates)
 * [How to set up automatic upgrades](https://libre-software.net/ubuntu-automatic-updates/)
 
-# 7. Thanks!
+# 8. Thanks!
 If you want to use Digital Ocean as your VPS, please use this [referral link](https://m.do.co/c/7680995597d6).  You'll get $100 worth of credit over 60 days and I'll get $25 worth of service credit to keep my VPS up.  Thanks.
