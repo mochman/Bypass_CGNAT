@@ -186,7 +186,7 @@ if [ $SERVERTYPE -eq 1 ]; then
   echo ""
   echo "Your wireguard tunnel should be set up now.  If you need to reset the link for any reason, please run 'systemctl reboot wg-quick@wg0'"
   echo ""
-  read -r -p "Would you like this script to configure your firewall? [Y/n]" UFW_YN
+  read -r -p $'\e[36mWould you like this script to configure your firewall? [Y/n]\e[0m' UFW_YN
   if [[ ! "$UFW_YN" =~ ^([yY][eE][sS]|[yY]|"")$ ]]; then
     echo -e "You should limit access to your server by using ufw as described in \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Limiting-Access\e[0m"
     exit
@@ -207,11 +207,11 @@ if [ $SERVERTYPE -eq 1 ]; then
   echo -e "\e[92mDone.\e[0m"
   echo ""
   echo "Here are all the rules that have been added."
-  ufw show added
+  ufw show added | tail -n +2
   echo ""
   echo "Do the rules look good (at the very least, you see your ssh port) for activating?"
   echo ""
-  read -r -p "Activate rules? [Y/n]" UFW_ON
+  read -r -p $'\e[36mActivate rules? [Y/n]\e[0m' UFW_ON
   if [[ ! "$UFW_ON" =~ ^([yY][eE][sS]|[yY]|"")$ ]]; then
     echo "Firewall not enabled"
     echo -e "You should limit access to your server by using ufw as described in \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Limiting-Access\e[0m"
