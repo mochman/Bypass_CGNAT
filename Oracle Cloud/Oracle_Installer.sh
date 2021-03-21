@@ -2,7 +2,8 @@
 
 # For Oracle Cloud Computer VMs running Ubuntu 20.04 Minimal
 # Usage:
-#  Oracle_Installer.sh <VPS/Local> <PUBKEY> <PUBLIC_IP> <SERVER_IP> <CLIENT WG IP> <WG PORT> <SRV_ARR>
+#  on VPS - ./Oracle_Installer.sh
+#  on Local Server - ./Oracle_Installer.sh <Local> <PUBKEY> <PUBLIC_IP> <SERVER_IP> <CLIENT WG IP> <WG PORT> <SRV_ARR>
 
 echo -e "\e[92m***************************************************"
 echo -e "***** \e[97mOracle Cloud Wireguard Tunnel Installer\e[92m *****"
