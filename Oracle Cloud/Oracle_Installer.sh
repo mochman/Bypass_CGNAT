@@ -13,17 +13,19 @@ if [[ $(/usr/bin/id -u) -ne 0 ]]; then
     echo "Please run with sudo"
     exit
 fi
-echo ""
-echo -e "Make sure you have followed the Opening Up Ports section found on \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Oracle-Cloud--(Opening-Up-Ports)\e[0m"
-echo ""
-echo "Please have a terminal window running on both your VPS and your Local Server since this script will ask you to input information into/from each other."
-echo ""
-echo -e "\e[36m"
-read -n 1 -s -r -p 'Press y to continue, any other key to exit' YORN
-echo -e "\e[0m"
-if [[ $YORN != [Yy] ]]; then
-  echo "Exiting..."
-  exit
+if [[ $1 == "Local" ]]; then
+  echo ""
+  echo -e "Make sure you have followed the Opening Up Ports section found on \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Oracle-Cloud--(Opening-Up-Ports)\e[0m"
+  echo ""
+  echo "Please have a terminal window running on both your VPS and your Local Server since this script will ask you to input information into/from each other."
+  echo "Be advised, this script will modify your iptables & ufw(firewall) settings."
+  echo -e "\e[36m"
+  read -n 1 -s -r -p 'Press y to continue, any other key to exit' YORN
+  echo -e "\e[0m"
+  if [[ $YORN != [Yy] ]]; then
+    echo "Exiting..."
+    exit
+  fi
 fi
 
 if [[ $1 == "VPS" ]] || [ ! $1 ]; then
@@ -55,7 +57,7 @@ echo ""
 echo "Installing Software..."
 
 if [ $SERVERTYPE -eq 1 ]; then
-  apt install nano iputils-ping ufw wireguard -y
+  apt install iputils-ping ufw wireguard -y
 else
   apt install wireguard -y
 fi
@@ -131,6 +133,7 @@ if [ $SERVERTYPE -eq 1 ]; then
   PK_FOR_CLIENT=$(cat /etc/wireguard/publickey)
   TUNNEL_IP=$(ip -4 a show scope global | grep global | awk '{print $2}' | sed 's/\/.*//g')
   TUNNEL_INT=$(ip -4 a show scope global | grep global | awk '{print $7}')
+  SSHD_PORT=$(cat /etc/ssh/sshd_config | grep -E "Port [0-9]+" | grep -Eo "[0-9]+")
 #  echo "Allowing wireguard connection in iptables"
 #  if iptables -S INPUT | grep -- "INPUT -p udp -m udp --dport $WGPORT -j ACCEPT" >/dev/null; then
 #    echo -e "\e[92mConnection alrady allowed\e[0m"
@@ -186,10 +189,10 @@ if [ $SERVERTYPE -eq 1 ]; then
   echo "ListenPort = $WGPORT" >> /etc/wireguard/wg0.conf
   echo "Address = $WG_SERVER_IP/24" >> /etc/wireguard/wg0.conf
   echo "" >> /etc/wireguard/wg0.conf
-  echo "PostUp = iptables -t nat -A PREROUTING -p tcp -i $TUNNEL_INT '!' --dport 22 -j DNAT --to-destination $WG_CLIENT_IP; iptables -t nat -A POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> /etc/wireguard/wg0.conf
+  echo "PostUp = iptables -t nat -A PREROUTING -p tcp -i $TUNNEL_INT '!' --dport $SSHD_PORT -j DNAT --to-destination $WG_CLIENT_IP; iptables -t nat -A POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> /etc/wireguard/wg0.conf
   echo "PostUp = iptables -t nat -A PREROUTING -p udp -i $TUNNEL_INT '!' --dport $WGPORT -j DNAT --to-destination $WG_CLIENT_IP;" >> /etc/wireguard/wg0.conf
   echo "" >> /etc/wireguard/wg0.conf
-  echo "PostDown = iptables -t nat -D PREROUTING -p tcp -i $TUNNEL_INT '!' --dport 22 -j DNAT --to-destination $WG_CLIENT_IP; iptables -t nat -D POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> /etc/wireguard/wg0.conf
+  echo "PostDown = iptables -t nat -D PREROUTING -p tcp -i $TUNNEL_INT '!' --dport $SSHD_PORT -j DNAT --to-destination $WG_CLIENT_IP; iptables -t nat -D POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> /etc/wireguard/wg0.conf
   echo "PostDown = iptables -t nat -D PREROUTING -p udp -i $TUNNEL_INT '!' --dport $WGPORT -j DNAT --to-destination $WG_CLIENT_IP;" >> /etc/wireguard/wg0.conf
   echo "" >> /etc/wireguard/wg0.conf
   echo "[Peer]" >> /etc/wireguard/wg0.conf
@@ -203,7 +206,7 @@ if [ $SERVERTYPE -eq 1 ]; then
   echo "Waiting for connection..."
   while ! ping -c 1 -W 1 $WG_CLIENT_IP > /dev/null; do
     printf '.'
-    sleep 1
+    sleep 2
   done
   echo -e "\e[92mConnection Established!\e[0m"
   echo ""
@@ -213,8 +216,40 @@ if [ $SERVERTYPE -eq 1 ]; then
   echo ""
   echo "Your wireguard tunnel should be set up now.  If you need to reset the link for any reason, please run 'systemctl reboot wg-quick@wg0'"
   echo ""
-  echo -e "You should now limit access to your server by using ufw as described in \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Limiting-Access\e[0m"
-
+  read -r -p "Would you like this script to configure your firewall? [Y/n]" UFW_YN
+  if [[ ! "$UFW_YN" =~ ^([yY][eE][sS]|[yY]|"")$ ]]; then
+    echo -e "You should limit access to your server by using ufw as described in \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Limiting-Access\e[0m"
+    exit
+  fi
+  echo "Adding OpenSSH($SSHD_PORT/tcp)"
+  ufw allow $SSHD_PORT/tcp > /dev/null
+  for i in $(echo $PORTLIST | sed "s/,/ /g")
+  do
+    PORT=$(echo $i| cut -d'/' -f 1)
+    PROT=$(echo $i| cut -d'/' -f 2)
+    echo "Adding $PORT/$PROT"
+    ufw allow $PORT/$PROT > /dev/null
+  done
+  echo "Allowing routing"
+  ufw default allow routed > /dev/null
+  echo "Deny all other traffic"
+  ufw ufw default allow routed
+  echo -e "\e[92mDone.\e[0m"
+  echo ""
+  echo "Here are all the rules that have been added."
+  ufw show added
+  echo ""
+  echo "Do the rules look good (at the very least, you see your ssh port)?"
+  read -r -p "Activate rules? [Y/n]" UFW_ON
+  if [[ ! "$UFW_ON" =~ ^([yY][eE][sS]|[yY]|"")$ ]]; then
+    echo "Firewall not enabled"
+    echo -e "You should limit access to your server by using ufw as described in \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Limiting-Access\e[0m"
+    exit
+  fi
+  echo "\e[92mFirewall enabled[\e[0m"
+  echo ""
+  echo "Your system has been configured.  If you need to reset the link for any reason, please run 'systemctl reboot wg-quick@wg0'"
+  echo ""
 else
   PK_FOR_SERVER=$(cat /etc/wireguard/publickey)
   if [ $7 ]; then
@@ -258,5 +293,5 @@ else
   systemctl enable wg-quick@wg0
   echo -e "\e[92mDone.\e[0m"
   echo ""
-  echo "Your wireguard tunnel should be set up now.  If you need to reset the link for any reason, please run 'systemctl reboot wg-quick@wg0'"
+  echo "Your system has been configured.  If you need to reset the link for any reason, please run 'systemctl reboot wg-quick@wg0'"
 fi
