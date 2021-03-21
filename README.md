@@ -1,5 +1,5 @@
 ## Update for 21 Mar 21
-I have stated migrating information over to the [wiki section](./wiki) of this page.  There you will also be able to find information on getting this VPN set up by using Oracle Cloud's Free VMs.
+I have stated migrating information over to the [wiki section](https://github.com/mochman/Bypass_CGNAT/wiki) of this page.  There you will also be able to find information on getting this VPN set up by using Oracle Cloud's Free VMs.
 
 # Bypassing a CGNAT with Wireguard
 
