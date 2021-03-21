@@ -55,7 +55,7 @@ echo ""
 echo "Installing Software..."
 
 if [ $SERVERTYPE -eq 1 ]; then
-  apt install nano iputils-ping wireguard -y
+  apt install nano iputils-ping ufw wireguard -y
 else
   apt install wireguard -y
 fi
@@ -129,43 +129,49 @@ echo ""
 
 if [ $SERVERTYPE -eq 1 ]; then
   PK_FOR_CLIENT=$(cat /etc/wireguard/publickey)
-  echo "Allowing wireguard connection in iptables"
-  if iptables -S INPUT | grep -- "INPUT -p udp -m udp --dport $WGPORT -j ACCEPT" >/dev/null; then
-    echo -e "\e[92mConnection alrady allowed\e[0m"
-  else
-    echo "Adding iptable rule"
-    iptables -I INPUT -p udp --dport $WGPORT -j ACCEPT
-    echo -e "\e[92mDone.\e[0m"
-  fi
+  TUNNEL_IP=$(ip -4 a show scope global | grep global | awk '{print $2}' | sed 's/\/.*//g')
+  TUNNEL_INT=$(ip -4 a show scope global | grep global | awk '{print $7}')
+#  echo "Allowing wireguard connection in iptables"
+#  if iptables -S INPUT | grep -- "INPUT -p udp -m udp --dport $WGPORT -j ACCEPT" >/dev/null; then
+#    echo -e "\e[92mConnection alrady allowed\e[0m"
+#  else
+#    echo "Adding iptable rule"
+#    iptables -I INPUT -p udp --dport $WGPORT -j ACCEPT
+#    echo -e "\e[92mDone.\e[0m"
+#  fi
+  echo "Flushing default iptables"
+  iptables -F INPUT
+  iptables -F FORWARD
+  echo -e "\e[92mDone.\e[0m"
   echo ""
-  echo "What other ports/protcols do you want to pass through to your Local Server?"
-  echo "Please enter them like the following (no spaces):"
-  echo "443/tcp,80/tcp,8123/udp,8843/tcp"
+  echo "What ports/protcols do you want to pass through to your Local Server?"
+  echo "Please enter them like the following (comma separated, no spaces):"
+  echo "443/tcp,80/tcp,8123/udp,5128/tcp"
   echo "If you don't want any other traffic added, just press enter"
   echo ""
   read -p $'\e[36mEntry\e[0m: ' PORTLIST
-  for i in $(echo $PORTLIST | sed "s/,/ /g")
-  do
-    PORT=$(echo $i| cut -d'/' -f 1)
-    PROT=$(echo $i| cut -d'/' -f 2)
-    if iptables -S INPUT | grep -- "INPUT -p $PROT -m $PROT --dport $PORT -j ACCEPT" >/dev/null; then
-      echo -e "\e[92m$PORT/$PROT already allowed\e[0m"
-    else
-      iptables -I INPUT -p $PROT --dport $PORT -j ACCEPT
-    fi
-  done
-  echo ""
-  echo "Please look over these iptables rules.  You should see your requested protocls and ports."
-  echo ""
-  iptables -S INPUT
-  echo ""
-  echo -e "\e[36m"
-  read -n 1 -s -r -p 'If everything looks good, press y to save.  Any other button to exit.' YORN
-  echo -e "\e[0m"
-  if [[ $YORN != [Yy] ]]; then
-    echo "Exiting..."
-    exit
-  fi
+#  for i in $(echo $PORTLIST | sed "s/,/ /g")
+#  do
+#    PORT=$(echo $i| cut -d'/' -f 1)
+#    PROT=$(echo $i| cut -d'/' -f 2)
+#    if iptables -S INPUT | grep -- "INPUT -p $PROT -m $PROT --dport $PORT -j ACCEPT" >/dev/null; then
+#      echo -e "\e[92m$PORT/$PROT already allowed\e[0m"
+#    else
+#      iptables -I INPUT -p $PROT --dport $PORT -j ACCEPT
+#    fi
+#  done
+#  echo ""
+#  echo "Please look over these iptables rules.  You should see your requested protocls and ports."
+#  echo ""
+#  iptables -S INPUT
+#  echo ""
+#  echo -e "\e[36m"
+#  read -n 1 -s -r -p 'If everything looks good, press y to save.  Any other button to exit.' YORN
+#  echo -e "\e[0m"
+#  if [[ $YORN != [Yy] ]]; then
+#    echo "Exiting..."
+#    exit
+#  fi
   echo "Saving the iptables to persist across reboots"
   iptables-save > /etc/iptables/rules.v4
   echo -e "\e[92mDone.\e[0m"
@@ -180,11 +186,11 @@ if [ $SERVERTYPE -eq 1 ]; then
   echo "ListenPort = $WGPORT" >> /etc/wireguard/wg0.conf
   echo "Address = $WG_SERVER_IP/24" >> /etc/wireguard/wg0.conf
   echo "" >> /etc/wireguard/wg0.conf
-  echo "PostUp = iptables -t nat -A PREROUTING -p tcp -i eth0 '!' --dport 22 -j DNAT --to-destination $WG_CLIENT_IP; iptables -t nat -A POSTROUTING -o eth0 -j SNAT --to-source $PUBLIC_IP" >> /etc/wireguard/wg0.conf
-  echo "PostUp = iptables -t nat -A PREROUTING -p udp -i eth0 '!' --dport $WGPORT -j DNAT --to-destination $WG_CLIENT_IP;" >> /etc/wireguard/wg0.conf
+  echo "PostUp = iptables -t nat -A PREROUTING -p tcp -i $TUNNEL_INT '!' --dport 22 -j DNAT --to-destination $WG_CLIENT_IP; iptables -t nat -A POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> /etc/wireguard/wg0.conf
+  echo "PostUp = iptables -t nat -A PREROUTING -p udp -i $TUNNEL_INT '!' --dport $WGPORT -j DNAT --to-destination $WG_CLIENT_IP;" >> /etc/wireguard/wg0.conf
   echo "" >> /etc/wireguard/wg0.conf
-  echo "PostDown = iptables -t nat -D PREROUTING -p tcp -i eth0 '!' --dport 22 -j DNAT --to-destination $WG_CLIENT_IP; iptables -t nat -D POSTROUTING -o eth0 -j SNAT --to-source $PUBLIC_IP" >> /etc/wireguard/wg0.conf
-  echo "PostDown = iptables -t nat -D PREROUTING -p udp -i eth0 '!' --dport $WGPORT -j DNAT --to-destination $WG_CLIENT_IP;" >> /etc/wireguard/wg0.conf
+  echo "PostDown = iptables -t nat -D PREROUTING -p tcp -i $TUNNEL_INT '!' --dport 22 -j DNAT --to-destination $WG_CLIENT_IP; iptables -t nat -D POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> /etc/wireguard/wg0.conf
+  echo "PostDown = iptables -t nat -D PREROUTING -p udp -i $TUNNEL_INT '!' --dport $WGPORT -j DNAT --to-destination $WG_CLIENT_IP;" >> /etc/wireguard/wg0.conf
   echo "" >> /etc/wireguard/wg0.conf
   echo "[Peer]" >> /etc/wireguard/wg0.conf
   echo "PublicKey = $PK_FOR_SERVER" >> /etc/wireguard/wg0.conf
@@ -206,6 +212,8 @@ if [ $SERVERTYPE -eq 1 ]; then
   echo -e "\e[92mDone.\e[0m"
   echo ""
   echo "Your wireguard tunnel should be set up now.  If you need to reset the link for any reason, please run 'systemctl reboot wg-quick@wg0'"
+  echo ""
+  echo -e "You should now limit access to your server by using ufw as described in \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Limiting-Access\e[0m"
 
 else
   PK_FOR_SERVER=$(cat /etc/wireguard/publickey)
