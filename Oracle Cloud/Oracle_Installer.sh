@@ -14,7 +14,7 @@ if [[ $(/usr/bin/id -u) -ne 0 ]]; then
     exit
 fi
 echo ""
-echo -e "Make sure you have followed the Opening Up Ports section found on \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Oracle-Cloud---Opening-Up-Ports\e[0m"
+echo -e "Make sure you have followed the Opening Up Ports section found on \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Oracle-Cloud--(Opening-Up-Ports)\e[0m"
 echo ""
 echo "Please have a terminal window running on both your VPS and your Local Server since this script will ask you to input information into/from each other."
 echo ""
