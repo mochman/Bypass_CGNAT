@@ -3,6 +3,7 @@
 # For Oracle Cloud Computer VMs runninf Ubuntu 20.04
 # Usage:
 #  Oracle_Installer.sh <VPS/Local> <PUBKEY> <PUBLIC_IP> <SERVER_IP> <CLIENT WG IP> <WG PORT> <SRV_ARR>
+
 echo -e "\e[92m***************************************************"
 echo -e "***** \e[97mOracle Cloud Wireguard Tunnel Installer\e[92m *****"
 echo -e "***************************************************\e[0m"
@@ -47,17 +48,17 @@ wg-quick down wg0 2> /dev/null
 echo -e "\e[92mDone.\e[0m"
 echo ""
 echo "Updating System..."
-#apt update
-#apt upgrade -y
+apt update
+apt upgrade -y
 echo -e "\e[92mDone.\e[0m"
 echo ""
 echo "Installing Software..."
 
-#if [ $SERVERTYPE -eq 1 ]; then
-#  apt install nano iputils-ping wireguard -y
-#else
-#  apt install wireguard -y
-#fi
+if [ $SERVERTYPE -eq 1 ]; then
+  apt install nano iputils-ping wireguard -y
+else
+  apt install wireguard -y
+fi
 echo -e "\e[92mDone.\e[0m"
 echo ""
 echo "Configuring Forwarding Settings"
