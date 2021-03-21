@@ -13,7 +13,7 @@ if [[ $(/usr/bin/id -u) -ne 0 ]]; then
     echo "Please run with sudo"
     exit
 fi
-if [[ $1 == "Local" ]]; then
+if [[ $1 != "Local" ]]; then
   echo ""
   echo -e "Make sure you have followed the Opening Up Ports section found on \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Oracle-Cloud--(Opening-Up-Ports)\e[0m"
   echo ""
@@ -233,20 +233,21 @@ if [ $SERVERTYPE -eq 1 ]; then
   echo "Allowing routing"
   ufw default allow routed > /dev/null
   echo "Deny all other traffic"
-  ufw ufw default allow routed
+  ufw default allow routed
   echo -e "\e[92mDone.\e[0m"
   echo ""
   echo "Here are all the rules that have been added."
   ufw show added
   echo ""
-  echo "Do the rules look good (at the very least, you see your ssh port)?"
+  echo "Do the rules look good (at the very least, you see your ssh port) for activating?"
+  echo ""
   read -r -p "Activate rules? [Y/n]" UFW_ON
   if [[ ! "$UFW_ON" =~ ^([yY][eE][sS]|[yY]|"")$ ]]; then
     echo "Firewall not enabled"
     echo -e "You should limit access to your server by using ufw as described in \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Limiting-Access\e[0m"
     exit
   fi
-  echo "\e[92mFirewall enabled[\e[0m"
+  echo -e "\e[92mFirewall enabled[\e[0m"
   echo ""
   echo "Your system has been configured.  If you need to reset the link for any reason, please run 'systemctl reboot wg-quick@wg0'"
   echo ""
