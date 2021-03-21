@@ -134,14 +134,6 @@ if [ $SERVERTYPE -eq 1 ]; then
   TUNNEL_IP=$(ip -4 a show scope global | grep global | awk '{print $2}' | sed 's/\/.*//g')
   TUNNEL_INT=$(ip -4 a show scope global | grep global | awk '{print $7}')
   SSHD_PORT=$(cat /etc/ssh/sshd_config | grep -E "Port [0-9]+" | grep -Eo "[0-9]+")
-#  echo "Allowing wireguard connection in iptables"
-#  if iptables -S INPUT | grep -- "INPUT -p udp -m udp --dport $WGPORT -j ACCEPT" >/dev/null; then
-#    echo -e "\e[92mConnection alrady allowed\e[0m"
-#  else
-#    echo "Adding iptable rule"
-#    iptables -I INPUT -p udp --dport $WGPORT -j ACCEPT
-#    echo -e "\e[92mDone.\e[0m"
-#  fi
   echo "Flushing default iptables"
   iptables -F INPUT
   iptables -F FORWARD
@@ -153,28 +145,6 @@ if [ $SERVERTYPE -eq 1 ]; then
   echo "If you don't want any other traffic added, just press enter"
   echo ""
   read -p $'\e[36mEntry\e[0m: ' PORTLIST
-#  for i in $(echo $PORTLIST | sed "s/,/ /g")
-#  do
-#    PORT=$(echo $i| cut -d'/' -f 1)
-#    PROT=$(echo $i| cut -d'/' -f 2)
-#    if iptables -S INPUT | grep -- "INPUT -p $PROT -m $PROT --dport $PORT -j ACCEPT" >/dev/null; then
-#      echo -e "\e[92m$PORT/$PROT already allowed\e[0m"
-#    else
-#      iptables -I INPUT -p $PROT --dport $PORT -j ACCEPT
-#    fi
-#  done
-#  echo ""
-#  echo "Please look over these iptables rules.  You should see your requested protocls and ports."
-#  echo ""
-#  iptables -S INPUT
-#  echo ""
-#  echo -e "\e[36m"
-#  read -n 1 -s -r -p 'If everything looks good, press y to save.  Any other button to exit.' YORN
-#  echo -e "\e[0m"
-#  if [[ $YORN != [Yy] ]]; then
-#    echo "Exiting..."
-#    exit
-#  fi
   echo "Saving the iptables to persist across reboots"
   iptables-save > /etc/iptables/rules.v4
   echo -e "\e[92mDone.\e[0m"
@@ -247,7 +217,7 @@ if [ $SERVERTYPE -eq 1 ]; then
     echo -e "You should limit access to your server by using ufw as described in \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Limiting-Access\e[0m"
     exit
   fi
-  echo -e "\e[92mFirewall enabled[\e[0m"
+  echo -e "\e[92mFirewall enabled\e[0m"
   echo ""
   echo "Your system has been configured.  If you need to reset the link for any reason, please run 'systemctl reboot wg-quick@wg0'"
   echo ""
@@ -295,4 +265,5 @@ else
   echo -e "\e[92mDone.\e[0m"
   echo ""
   echo "Your system has been configured.  If you need to reset the link for any reason, please run 'systemctl reboot wg-quick@wg0'"
+  echo ""
 fi
