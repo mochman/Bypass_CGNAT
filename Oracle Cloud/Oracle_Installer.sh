@@ -209,7 +209,7 @@ if [ $SERVERTYPE -eq 1 ]; then
   echo "Here are all the rules that have been added."
   ufw show added | tail -n +2
   echo ""
-  echo "Do the rules look good (at the very least, you see your ssh port) for activating?"
+  echo "Do the rules look good (at the very least, you should see your ssh port) for activating?"
   echo ""
   read -r -p $'\e[36mActivate rules? [Y/n]\e[0m' UFW_ON
   if [[ ! "$UFW_ON" =~ ^([yY][eE][sS]|[yY]|"")$ ]]; then
