@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# For Oracle Cloud Computer VMs runninf Ubuntu 20.04
+# For Oracle Cloud Computer VMs running Ubuntu 20.04 Minimal
 # Usage:
 #  Oracle_Installer.sh <VPS/Local> <PUBKEY> <PUBLIC_IP> <SERVER_IP> <CLIENT WG IP> <WG PORT> <SRV_ARR>
 
