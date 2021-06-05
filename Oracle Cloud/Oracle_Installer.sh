@@ -217,8 +217,10 @@ if [ $SERVERTYPE -eq 1 ]; then
     echo "Firewall not enabled"
     echo -e "You should limit access to your server by using ufw as described in \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Limiting-Access\e[0m"
     exit
+  else
+    ufw enable
   fi
-  echo -e "\e[92mFirewall enabled\e[0m"
+  
   echo ""
   echo "Your system has been configured.  If you need to reset the link for any reason, please run 'systemctl reboot wg-quick@wg0'"
   echo ""
