@@ -194,6 +194,8 @@ if [ $SERVERTYPE -eq 1 ]; then
   fi
   echo "Adding OpenSSH($SSHD_PORT/tcp)"
   ufw allow $SSHD_PORT/tcp > /dev/null
+  echo "Adding Wireguard Port($WGPORT)"
+  ufw allow $WGPORT > /dev/null
   for i in $(echo $PORTLIST | sed "s/,/ /g")
   do
     PORT=$(echo $i| cut -d'/' -f 1)
