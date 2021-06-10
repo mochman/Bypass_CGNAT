@@ -136,8 +136,8 @@ if [ $SERVERTYPE -eq 1 ]; then
   TUNNEL_INT=$(ip -4 a show scope global | grep global | awk '{print $7}')
   SSHD_PORT=$(cat /etc/ssh/sshd_config | grep -E "Port [0-9]+" | grep -Eo "[0-9]+")
   echo "Flushing default iptables"
-  iptables -F INPUT
-  iptables -F FORWARD
+  iptables -F 
+  iptables -X
   echo -e "\e[92mDone.\e[0m"
   echo ""
   echo "What ports/protcols do you want to pass through to your Local Server?"
