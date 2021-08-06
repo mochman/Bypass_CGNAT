@@ -14,4 +14,9 @@ Here is a basic diagram of my configuration.  The IPs and ports will need to be 
 
 ![Topology](Basic%20Topology.png)
 
-If this is something you would like to try out, please go to the [wiki section](https://github.com/mochman/Bypass_CGNAT/wiki) to start the tutorial.
+## Tested with:
+* Digital Ocean ([link](https://www.digitalocean.com/products/droplets/))
+* Oracle Cloud ([link](https://www.oracle.com/cloud/))
+* AWS Ligthsail ([link](https://aws.amazon.com/lightsail/))
+
+## If this is something you would like to try out, please go to the [wiki section](https://github.com/mochman/Bypass_CGNAT/wiki) to start the tutorial.
