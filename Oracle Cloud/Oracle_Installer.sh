@@ -33,13 +33,11 @@ update_system () {
 }
 
 install_required () {
-  echo -e "${YELLOW}Installing Software${NC}..."
-  if [ $SERVERTYPE -eq 1 ]; then
-    echo "installingS"
-    #apt install iputils-ping ufw wireguard -y
+  echo -e "${YELLOW}Installing Required Software${NC}..."
+  if [[ $SERVERTYPE == 1 ]]; then
+    apt install iputils-ping ufw wireguard -y
   else
-    echo "installingC"
-    #apt install wireguard -y
+    apt install wireguard -y
   fi
   echo -e "[${GREEN}Done${NC}]"
 }
@@ -54,7 +52,8 @@ configure_forwarding () {
       echo -e "[${CYAN}Appending to /etc/sysctl.conf${NC}]"
       echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
     fi
-    sysctl -p
+    echo -en "${YELLOW}Reloading sysctl settings${NC}..."
+    sysctl -q -p
     echo -e "[${GREEN}Done${NC}]"
   fi
 }
@@ -71,7 +70,7 @@ get_ips () {
   read -p $'\e[36mVPS Public IP\e[0m: ' PUBLIC_IP
   fi
 
-  if [ $SERVERTYPE -eq 1 ]; then
+  if [[ $SERVERTYPE == 1 ]]; then
     echo ""
     echo -e "\e[33mThe following networks have been found on your system.  Please use a different network for your Wireguard Server & Client\e[0m"
     echo $LOCALIPS
@@ -269,6 +268,7 @@ echo -e "***************************************************${NC}"
 echo ""
 echo "This script will install and configure wireguard on your machines."
 if [[ $1 != "Local" ]]; then
+  SERVERTYPE=1
   echo ""
   echo -e "Make sure you have followed the Opening Up Ports section found on:"
   echo -e "${LBU}https://github.com/mochman/Bypass_CGNAT/wiki/Oracle-Cloud--(Opening-Up-Ports)${NC}"
@@ -285,6 +285,7 @@ elif [[ $1 == "Local" ]]; then
   create_client_config $3 $5 $6 $7 $2 $4
   echo ""
   echo "Your system has been configured.  If you need to reset the VPN link for any reason, please run 'systemctl reboot wg-quick@wg0'"
+  exit
 fi
 
 FOUNDOLD=0
@@ -383,6 +384,20 @@ if [[ $FOUNDOLD == 1 ]]; then
     done
   fi
 else
-  echo "FRESH"
-  #Fresh Install Here
+  stop_wireguard
+  update_system
+  install_required
+  configure_forwarding
+  get_ips $5 $6 $3
+  create_keys
+  create_server_config
+  read -r -p $'\e[36mWould you like this script to configure your firewall? [Y/n]\e[0m' UFW_YN
+  if [[ ! "$UFW_YN" =~ ^([yY][eE][sS]|[yY]|"")$ ]]; then
+    echo -e "You should limit access to your server by using ufw as described in \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Limiting-Access\e[0m"
+  exit
+  fi
+  clear_firewall
+  setup_firewall
+  echo ""
+  echo "Your system has been configured.  If you need to reset the VPN link for any reason, please run 'systemctl reboot wg-quick@wg0'"
 fi
