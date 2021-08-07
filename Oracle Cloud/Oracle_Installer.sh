@@ -1,33 +1,200 @@
 #!/bin/bash
+WGCONFLOC='/etc/wireguard/wg0.conf'
+
+RED='\033[0;31m'
+NC='\033[0m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BOLD='\033[1m'
+LGREEN='\033[92m'
+WHITE='\033[97m'
+LBLUE='\033[94m'
+LBU='\033[94;4m'
+CYAN='\033[36m'
+
+stop_wireguard () {
+  echo -en "${YELLOW}Stopping any current wireguard services${NC}..."
+  systemctl stop wg-quick@wg0 2> /dev/null
+  wg-quick down wg0 2> /dev/null
+  echo -e "[${GREEN}Done${NC}]"
+}
+
+update_system () {
+  echo -e "${YELLOW}Updating System${NC}..."
+  apt update
+  apt upgrade -y
+  echo -e "[${GREEN}Done${NC}]"
+}
+
+install_required () {
+  echo -e "${YELLOW}Installing Software${NC}..."
+  if [ $SERVERTYPE -eq 1 ]; then
+    echo "installingS"
+    #apt install iputils-ping ufw wireguard -y
+  else
+    echo "installingC"
+    #apt install wireguard -y
+  fi
+  echo -e "[${GREEN}Done${NC}]"
+}
+
+configure_forwarding () {
+  echo -en "${YELLOW}Configuring Forwarding Settings${NC}..."
+  if grep -e "^net.ipv4.ip_forward=1$" /etc/sysctl.conf >/dev/null; then
+    echo -e "[${GREEN}Already set${NC}]"
+  else
+    sed -i 's/^\#net.ipv4.ip_forward=1$/net.ipv4.ip_forward=1/g' /etc/sysctl.conf
+    if ! grep -e "^net.ipv4.ip_forward=1$" /etc/sysctl.conf >/dev/null; then
+      echo -e "[${CYAN}Appending to /etc/sysctl.conf${NC}]"
+      echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+    fi
+    sysctl -p
+    echo -e "[${GREEN}Done${NC}]"
+  fi
+}
+
+get_ips () {
+  if [ $SERVERTYPE -eq 1 ]; then
+    echo ""
+    echo -e "\e[33mThe following networks have been found on your system.  Please use a different network for your Wireguard Server & Client\e[0m"
+    echo $LOCALIPS
+    echo ""
+    read -p $'\e[36mWireguard Server IP \e[0m[\e[32m10.1.0.1\e[0m]: ' WG_SERVER_IP
+  fi
+  WG_SERVER_IP=${WG_SERVER_IP:-10.1.0.1}
+
+  if [ $1 ]; then
+    WG_CLIENT_IP=$1
+  else
+    read -p $'\e[36mWireguard Client IP \e[0m[\e[32m10.1.0.2\e[0m]: ' WG_CLIENT_IP
+    WG_CLIENT_IP=${WG_CLIENT_IP:-10.1.0.2}
+  fi
+
+  if [ $2 ]; then
+    WGPORT=$2
+  else
+    read -p $'\e[36mWireguard Port \e[0m[\e[32m55108\e[0m]: ' WGPORT
+    WGPORT=${WGPORT:-55108}
+  fi
+
+  for i in "PUBLIC_IP" "WG_SERVER_IP" "WG_CLIENT_IP"
+  do
+    if [[ ${!i} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      :
+    else
+      echo -e "\e[31m$i is not a valid IP, exiting...\e[0m"
+      exit 1
+    fi
+  done
+}
 
 # For Oracle Cloud Computer VMs running Ubuntu 20.04 Minimal
 # Usage:
 #  on VPS - ./Oracle_Installer.sh
 #  on Local Server - ./Oracle_Installer.sh <Local> <PUBKEY> <PUBLIC_IP> <SERVER_IP> <CLIENT WG IP> <WG PORT> <SRV_ARR>
 
-echo -e "\e[92m***************************************************"
-echo -e "***** \e[97mOracle Cloud Wireguard Tunnel Installer\e[92m *****"
-echo -e "***************************************************\e[0m"
 echo ""
-echo "This script will install and configure wireguard on your machines"
+echo ""
+echo -e "${LGREEN}***************************************************"
+echo -e "*     ${WHITE}Oracle Cloud Wireguard Tunnel Installer${LGREEN}     *"
+echo -e "*                ${LBLUE}Version 0.1.0               ${LGREEN}     *"
+echo -e "***************************************************${NC}"
+echo ""
+echo "This script will install and configure wireguard on your machines."
 if [[ $(/usr/bin/id -u) -ne 0 ]]; then
     echo "Please run with sudo"
     exit
 fi
 if [[ $1 != "Local" ]]; then
   echo ""
-  echo -e "Make sure you have followed the Opening Up Ports section found on \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Oracle-Cloud--(Opening-Up-Ports)\e[0m"
+  echo -e "Make sure you have followed the Opening Up Ports section found on:"
+  echo -e "${LBU}https://github.com/mochman/Bypass_CGNAT/wiki/Oracle-Cloud--(Opening-Up-Ports)${NC}"
   echo ""
-  echo "Please have a terminal window running on both your VPS and your Local Server since this script will ask you to input information into/from each other."
-  echo "Be advised, this script will modify your iptables & ufw(firewall) settings."
-  echo -e "\e[36m"
-  read -n 1 -s -r -p 'Press y to continue, any other key to exit' YORN
-  echo -e "\e[0m"
-  if [[ $YORN != [Yy] ]]; then
-    echo "Exiting..."
-    exit
-  fi
+  echo "Please have a terminal window running on both your VPS and your Local Server"
+  echo "since this script will ask you to input information into/from each other."
+  echo -e "${YELLOW}Be advised, this script will modify your iptables & ufw(firewall) settings.${NC}"
 fi
+
+FOUNDOLD=0
+
+# Look for an already set up wireguard config
+if grep -q -E 'PrivateKey = .+' $WGCONFLOC 2>/dev/null; then
+  # Check if Server/Client
+  if grep -q 'Endpoint' $WGCONFLOC; then
+    # Client
+    FOUNDTYPE=2
+    FOUNDOLD=1
+    options=("Change Port Numbers" "Change Port->IP Mapping" "Exit Script")
+  else
+    # Server
+    FOUNDTYPE=1
+    FOUNDOLD=1
+    options=("Change Ports Passed Through" "Create New Configuration" "Exit Script")
+  fi
+else
+  FOUNDTYPE=0
+fi
+
+echo ""
+echo -e "${LBLUE}***************************************************"
+if [[ $FOUNDTYPE == 2 ]]; then
+  echo -e "*${NC}    Current Wireguard Configuration Detected    ${LBLUE} *"
+  echo -e "*${YELLOW}                 Local Client                ${LBLUE}    *"
+elif [[ $FOUNDTYPE == 1 ]]; then
+  echo -e "*${NC}    Current Wireguard Configuration Detected    ${LBLUE} *"
+  echo -e "*${YELLOW}                  VPS Server              ${LBLUE}       *"
+else
+  echo -e "*${NC}        Wireguard Configuration Not Found  ${LBLUE}      *"
+fi
+echo -e "${LBLUE}***************************************************${NC}"
+echo ""
+
+if [[ $FOUNDOLD == 1 ]]; then
+  echo "Options:"
+  if [[ $FOUNDTYPE == 1 ]]; then
+    PS3="Select #: "
+    select opt in "${options[@]}"
+    do
+      case $opt in
+        "Change Ports Passed Through")
+          echo "CHANGE PORTS"
+          break
+          ;;
+        "Create New Configuration")
+          echo "NEW"
+          break
+          ;;
+        "Exit Script")
+          exit
+          ;;
+        *) exit;;
+      esac
+    done
+  elif [[ $FOUNDTYPE == 2 ]]; then
+    PS3="Select #: "
+    select opt in "${options[@]}"
+    do
+      case $opt in
+        "Change Port Numbers")
+          echo "CHANGE PORT NUMS"
+          break
+          ;;
+        "Change Port->IP Mapping")
+          echo "MAPPING"
+          break
+          ;;
+        "Exit Script")
+          exit
+          ;;
+        *) exit;;
+      esac
+    done
+  fi
+else
+  echo "FRESH"
+  #Fresh Install Here
+fi
+
 
 if [[ $1 == "VPS" ]] || [ ! $1 ]; then
   SERVERTYPE=1
@@ -45,37 +212,13 @@ if ! [ $SERVERTYPE -eq 1 -o $SERVERTYPE -eq 2 ] 2>/dev/null; then
 fi
 
 echo ""
-echo "Stopping any current wireguard services"
-systemctl stop wg-quick@wg0
-wg-quick down wg0 2> /dev/null
-echo -e "\e[92mDone.\e[0m"
+stop_wireguard
 echo ""
-echo "Updating System..."
-apt update
-apt upgrade -y
-echo -e "\e[92mDone.\e[0m"
+update_system
 echo ""
-echo "Installing Software..."
-
-if [ $SERVERTYPE -eq 1 ]; then
-  apt install iputils-ping ufw wireguard -y
-else
-  apt install wireguard -y
-fi
-echo -e "\e[92mDone.\e[0m"
+install_required
 echo ""
-echo "Configuring Forwarding Settings"
-if grep -e "^net.ipv4.ip_forward=1$" /etc/sysctl.conf >/dev/null; then
-  echo -e "\e[92mAlready set correctly.\e[0m"
-else
-  sed -i 's/^\#net.ipv4.ip_forward=1$/net.ipv4.ip_forward=1/g' /etc/sysctl.conf
-  if ! grep -e "^net.ipv4.ip_forward=1$" /etc/sysctl.conf >/dev/null; then
-    echo -e "\e[92mAppending to /etc/sysctl.conf\e[0m"
-    echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
-  fi
-  sysctl -p
-  echo -e "\e[92mDone.\e[0m"
-fi
+configure_forwarding
 echo ""
 
 echo "In the following steps, you will need to enter some IP addresses.  You can find your VPS Public IP address on your Oracle Cloud Instance Page under \"Public IP Address\"".
@@ -89,39 +232,9 @@ else
  read -p $'\e[36mVPS Public IP\e[0m: ' PUBLIC_IP
 fi
 
-if [ $SERVERTYPE -eq 1 ]; then
-  echo ""
-  echo -e "\e[33mThe following networks have been found on your system.  Please use a different network for your Wireguard Server & Client\e[0m"
-  echo $LOCALIPS
-  echo ""
-  read -p $'\e[36mWireguard Server IP \e[0m[\e[32m10.1.0.1\e[0m]: ' WG_SERVER_IP
-fi
-WG_SERVER_IP=${WG_SERVER_IP:-10.1.0.1}
+get_ips $5 $6
 
-if [ $5 ]; then
-  WG_CLIENT_IP=$5
-else
-  read -p $'\e[36mWireguard Client IP \e[0m[\e[32m10.1.0.2\e[0m]: ' WG_CLIENT_IP
-  WG_CLIENT_IP=${WG_CLIENT_IP:-10.1.0.2}
-fi
-
-if [ $6 ]; then
-  WGPORT=$6
-else
-  read -p $'\e[36mWireguard Port \e[0m[\e[32m55108\e[0m]: ' WGPORT
-  WGPORT=${WGPORT:-55108}
-fi
-
-for i in "PUBLIC_IP" "WG_SERVER_IP" "WG_CLIENT_IP"
-do
-  if [[ ${!i} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    :
-  else
-    echo -e "\e[31m$i is not a valid IP, exiting...\e[0m"
-    exit 1
-  fi
-done
-
+exit #REMOVE
 
 #Set the Configuration Files
 echo "Writing the configuration files..."
