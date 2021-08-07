@@ -259,7 +259,7 @@ setup_firewall () {
     echo -e "  You should limit access to your server by using ufw as described in \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Limiting-Access\e[0m"
     exit
   else
-    ufw enable
+    ufw --force enable >/dev/null
   fi
   echo -e "[${GREEN}ufw Configured${NC}]"
 }
@@ -276,9 +276,16 @@ get_ports () {
   echo ""
   read -p $'\e[36mEntry\e[0m: ' PORTLIST
   echo ""
+  echo -en "${YELLOW}Saving ports to ${WGPORTSFILE}${NC}..."
+  echo $PORTLIST > $WGPORTSFILE
+  echo -e "[${GREEN}Done${NC}]"
+  echo ""
   echo -e "\e[1;35mBefore continuing with the rest of this script, please run this script on your Local Server with the following line\e[0m:"
   echo ""
-  echo -e "\"\e[96msudo ./Oracle_Installer.sh LocalMod $PORTLIST\e[0m\""
+  echo -e "${LCYAN}./Oracle_Installer.sh LocalMod $PORTLIST${NC}"
+  echo ""
+  read -n 1 -s -r -p 'Press any key to continue.' YORN
+  echo ""
 }
 
 ask_firewall () {
@@ -325,15 +332,18 @@ modify_client_config () {
   echo "" >> $WGCONFLOC
   cat $WGCONFBOTTOM >> $WGCONFLOC
   rm -f $WGCONFTOP $WGCONFBOTTOM
+  echo ""
 }
 
 script_complete () {
-  echo "Your system has been configured.  If you need to reset the VPN link for any reason, please run 'systemctl reboot wg-quick@wg0'"
+  echo ""
+  echo -e "Your system has been configured.  If you need to reset the VPN link for any reason, please run ${CYAN}sudo systemctl reboot wg-quick@wg0${NC}"
+  echo ""
 }
 
 
 #**********************Begin Script************************************
-
+clear
 echo ""
 echo -e "${LGREEN}***************************************************"
 echo -e "*     ${WHITE}Oracle Cloud Wireguard Tunnel Installer${LGREEN}     *"
@@ -355,6 +365,7 @@ elif [[ $1 == "LocalMod" ]]; then
   modify_client_config $2
   start_wireguard
   script_complete
+  exit
 else
   SERVERTYPE=1
   echo ""
@@ -365,7 +376,7 @@ else
   echo "since this script will ask you to input information into/from each other."
   echo -e "${YELLOW}Be advised, this script will modify your iptables & ufw(firewall) settings.${NC}"
   echo -e "${CYAN}"
-  read -n 1 -s -r -p 'Press q to quit, any other key to contine' YORN
+  read -n 1 -s -r -p 'Press q to quit, any other key to continue' YORN
   echo -e "${NC}"
   if [[ $YORN == [Qq] ]]; then
     echo "Exiting..."
@@ -389,7 +400,7 @@ if grep -q -E 'PrivateKey = .+' $WGCONFLOC 2>/dev/null; then
     FOUNDTYPE=1
     FOUNDOLD=1
     SERVERTYPE=1
-    options=("Change Ports Passed Through" "Create New Configuration" "Exit Script")
+    options=("Change Ports Passed Through" "Create New Configuration" "Reload Wireguard Service" "Exit Script")
   fi
 else
   FOUNDTYPE=0
@@ -418,14 +429,16 @@ if [[ $FOUNDOLD == 1 ]]; then
     do
       case $opt in
         "Change Ports Passed Through")
-          echo "CHANGE PORTS"
+          echo ""
           stop_wireguard
           get_ports
           ask_firewall 1
+          start_wireguard
           script_complete
           exit
           ;;
         "Create New Configuration")
+          echo ""
           stop_wireguard
           update_system
           install_required
@@ -435,6 +448,13 @@ if [[ $FOUNDOLD == 1 ]]; then
           create_server_config
           ask_firewall
           script_complete
+          exit
+          ;;
+        "Reload Wireguard Service")
+          echo ""
+          stop_wireguard
+          start_wireguard
+          echo ""
           exit
           ;;
         "Exit Script")
