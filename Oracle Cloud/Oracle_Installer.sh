@@ -204,6 +204,10 @@ create_client_config () {
   echo "PersistentKeepalive = 25" >> $WGCONFLOC
   echo "Wireguard Config file created at $WGCONFLOC"
   echo ""
+  echo -en "${YELLOW}Saving ports to ${WGPORTSFILE}${NC}..."
+  echo $PORTLIST > $WGPORTSFILE
+  echo -e "[${GREEN}Done${NC}]"
+  echo ""
   echo "Here is the Public Key for you to enter back on the VPS."
   echo ""
   echo -e "${LCYAN}$PK_FOR_SERVER${NC}"
@@ -311,8 +315,7 @@ start_wireguard () {
   echo -e "[${GREEN}Done${NC}]"
 }
 
-modify_client_config () {
-  PORTLIST=$1
+modify_mapping () {
   awk '{print} /Address/ {exit}' $WGCONFLOC > $WGCONFTOP
   sed -n '/\[Peer/,$p' < $WGCONFLOC > $WGCONFBOTTOM
   cat $WGCONFTOP > $WGCONFLOC
@@ -335,8 +338,17 @@ modify_client_config () {
   echo ""
 }
 
-modify_mapping () {
+modify_client_config () {
+  PORTLIST=$1
+  modify_mapping
+  echo -en "${YELLOW}Saving ports to ${WGPORTSFILE}${NC}..."
+  echo $PORTLIST > $WGPORTSFILE
+  echo -e "[${GREEN}Done${NC}]"
+}
 
+mapping_change () {
+  PORTLIST=$(cat $WGPORTSFILE)
+  modify_mapping
 }
 
 script_complete () {
@@ -480,7 +492,7 @@ if [[ $FOUNDOLD == 1 ]]; then
         "Change Port->IP Mapping")
           stop_wireguard
           echo ""
-          modify_mapping
+          mapping_change
           echo ""
           start_wireguard
           break
