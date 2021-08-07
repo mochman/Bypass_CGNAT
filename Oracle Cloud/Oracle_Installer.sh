@@ -305,6 +305,7 @@ start_wireguard () {
 }
 
 modify_client_config () {
+  PORTLIST=$1
   awk '{print} /Address/ {exit}' $WGCONFLOC > $WGCONFTOP
   sed -n '/\[Peer/,$p' < $WGCONFLOC > $WGCONFBOTTOM
   cat $WGCONFTOP > $WGCONFLOC
@@ -340,7 +341,21 @@ echo -e "*                ${LBLUE}Version 0.1.0               ${LGREEN}     *"
 echo -e "***************************************************${NC}"
 echo ""
 echo "This script will install and configure wireguard on your machines."
-if [[ $1 != "Local" ]]; then
+if [[ $1 == "Local" ]]; then
+  stop_wireguard
+  update_system
+  install_required
+  configure_forwarding
+  create_keys
+  create_client_config $3 $5 $6 $7 $2 $4
+  script_complete
+  exit
+elif [[ $1 == "LocalMod" ]]; then
+  stop_wireguard
+  modify_client_config $2
+  start_wireguard
+  script_complete
+else
   SERVERTYPE=1
   echo ""
   echo -e "Make sure you have followed the Opening Up Ports section found on:"
@@ -356,21 +371,6 @@ if [[ $1 != "Local" ]]; then
     echo "Exiting..."
     exit
   fi
-elif [[ $1 == "Local" ]]; then
-  stop_wireguard
-  update_system
-  install_required
-  configure_forwarding
-  create_keys
-  create_client_config $3 $5 $6 $7 $2 $4
-  script_complete
-  exit
-elif [[ $1 == "LocalMod" ]]; then
-  echo "Update Client Ports"
-  stop wireguard
-  modify_client_config
-  start_wireguard
-  script_complete
 fi
 
 FOUNDOLD=0
