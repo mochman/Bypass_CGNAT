@@ -7,6 +7,8 @@ fi
 WGCONFLOC='/etc/wireguard/wg0.conf'
 WGPUBKEY='/etc/wireguard/publickey'
 WGPORTSFILE='/etc/wireguard/forwarded_ports'
+WGCONFBOTTOM='/etc/wireguard/bottom_section'
+WGCONFTOP='/etc/wireguard/top_section'
 
 RED='\033[0;31m'
 NC='\033[0m'
@@ -303,7 +305,25 @@ start_wireguard () {
 }
 
 modify_client_config () {
-
+  awk '{print} /Address/ {exit}' $WGCONFLOC > $WGCONFTOP
+  sed -n '/\[Peer/,$p' < $WGCONFLOC > $WGCONFBOTTOM
+  cat $WGCONFTOP > $WGCONFLOC
+  echo "" >> $WGCONFLOC
+  for i in $(echo $PORTLIST | sed "s/,/ /g")
+  do
+    PORT=$(echo $i| cut -d'/' -f 1)
+    PROT=$(echo $i| cut -d'/' -f 2)
+    printf "IP Address of service using $PORT/$PROT (Just press Enter if using this server): "
+    read SVC_IP
+    if [[ -n $SVC_IP ]]; then
+      echo "PostUp = iptables -t nat -A PREROUTING -p $PROT --dport $PORT -j DNAT --to-destination $SVC_IP:$PORT; iptables -t nat -A POSTROUTING -p $PROT --dport $PORT -j MASQUERADE" >> $WGCONFLOC
+      echo "PostDown = iptables -t nat -D PREROUTING -p $PROT --dport $PORT -j DNAT --to-destination $SVC_IP:$PORT; iptables -t nat -D POSTROUTING -p $PROT --dport $PORT -j MASQUERADE" >> $WGCONFLOC
+      echo "" >> $WGCONFLOC
+    fi
+  done
+  echo "" >> $WGCONFLOC
+  cat $WGCONFBOTTOM >> $WGCONFLOC
+  rm -f $WGCONFTOP $WGCONFBOTTOM
 }
 
 script_complete () {
