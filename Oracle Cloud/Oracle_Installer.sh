@@ -6,6 +6,7 @@ fi
 
 WGCONFLOC='/etc/wireguard/wg0.conf'
 WGPUBKEY='/etc/wireguard/publickey'
+WGPORTSFILE='/etc/wireguard/forwarded_ports'
 
 RED='\033[0;31m'
 NC='\033[0m'
@@ -17,6 +18,8 @@ WHITE='\033[97m'
 LBLUE='\033[94m'
 LBU='\033[94;4m'
 CYAN='\033[36m'
+LCYAN='\033[96m'
+MAGEN='\033[1;35m'
 
 stop_wireguard () {
   echo -en "${YELLOW}Stopping any current wireguard services${NC}..."
@@ -72,7 +75,7 @@ get_ips () {
 
   if [[ $SERVERTYPE == 1 ]]; then
     echo ""
-    echo -e "\e[33mThe following networks have been found on your system.  Please use a different network for your Wireguard Server & Client\e[0m"
+    echo -e "${YELLOW}The following networks have been found on your system.  Please use a different network for your Wireguard Server & Client{$NC}"
     echo $LOCALIPS
     echo ""
     read -p $'\e[36mWireguard Server IP \e[0m[\e[32m10.1.0.1\e[0m]: ' WG_SERVER_IP
@@ -98,7 +101,7 @@ get_ips () {
     if [[ ${!i} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
       :
     else
-      echo -e "\e[31m$i is not a valid IP, exiting...\e[0m"
+      echo -e "${RED}$i is not a valid IP, exiting...${NC}"
       exit 1
     fi
   done
@@ -130,14 +133,17 @@ create_server_config () {
   echo -en "${YELLOW}Saving the iptables to persist across reboots${NC}..."
   iptables-save > /etc/iptables/rules.v4
   echo -e "[${GREEN}Done${NC}]"
+  echo -en "${YELLOW}Saving ports to ${WGPORTSFILE}${NC}..."
+  echo $PORTLIST > $WGPORTSFILE
+  echo -e "[${GREEN}Done${NC}]"
   echo ""
   echo ""
-  echo -e "\e[1;35mBefore continuing with the rest of this script, please run this script on your Local Server with the following line\e[0m:"
+  echo -e "${MAGEN}Before continuing with the rest of this script, please run this script on your Local Server with the following line{$NC}:"
   echo ""
-  echo -e "\"\e[96msudo ./Oracle_Installer.sh Local $PK_FOR_CLIENT $PUBLIC_IP $WG_SERVER_IP $WG_CLIENT_IP $WGPORT $PORTLIST\e[0m\""
+  echo -e "${LCYAN}./Oracle_Installer.sh Local $PK_FOR_CLIENT $PUBLIC_IP $WG_SERVER_IP $WG_CLIENT_IP $WGPORT $PORTLIST${NC}"
   echo ""
-  echo -e "\e[1;35mThat script will output a public key for you to input here.\e[0m"
-  read -p $'\e[36mPublic Key from Client\e[0m: ' PK_FOR_SERVER
+  echo -e "${MAGEN}That script will output a public key for you to input here.${NC}"
+  read -p $'\e[36mPublic Key from Client\e0m: ' PK_FOR_SERVER
   echo "ListenPort = $WGPORT" >> $WGCONFLOC
   echo "Address = $WG_SERVER_IP/24" >> $WGCONFLOC
   echo "" >> $WGCONFLOC
@@ -162,10 +168,9 @@ create_server_config () {
   done
   echo -e "[${GREEN}Connection Established${NC}]"
   echo -en "${YELLOW}Enabling Wireguard to start across reboots${NC}..."
-  systemctl enable wg-quick@wg0
+  systemctl enable wg-quick@wg0 >/dev/null
   echo -e "[${GREEN}Done${NC}]"
   echo "Your wireguard tunnel should be set up now.  If you need to reset the link for any reason, please run 'systemctl reboot wg-quick@wg0'"
-  echo ""
 }
 
 create_client_config () {
@@ -199,7 +204,7 @@ create_client_config () {
   echo ""
   echo "Here is the Public Key for you to enter back on the VPS."
   echo ""
-  echo -e "\e[96m$PK_FOR_SERVER\e[0m"
+  echo -e "${LCYAN}$PK_FOR_SERVER${NC}"
   echo ""
   echo -en "${YELLOW}Starting Wireguard${NC}..."
   systemctl start wg-quick@wg0
@@ -212,11 +217,8 @@ create_client_config () {
   echo -e "[${GREEN}Connection Established${NC}]"
   echo ""
   echo -en "${YELLOW}Enabling Wireguard to start across reboots${NC}..."
-  systemctl enable wg-quick@wg0
+  systemctl enable wg-quick@wg0 >/dev/null
   echo -e "[${GREEN}Done${NC}]"
-  echo ""
-  echo "Your system has been configured.  If you need to reset the link for any reason, please run 'systemctl reboot wg-quick@wg0'"
-  echo ""
 }
 
 clear_firewall () {
@@ -245,7 +247,7 @@ setup_firewall () {
   ufw default deny incoming > /dev/null
   echo ""
   echo "  Here are all the rules that have been added."
-  ufw show added | tail -n +2
+  ufw show added | tail -n +2 | sed -e 's/^/  /'
   echo ""
   echo "  Do the rules look good (at the very least, you should see your ssh port) for activating?"
   echo ""
@@ -276,6 +278,13 @@ if [[ $1 != "Local" ]]; then
   echo "Please have a terminal window running on both your VPS and your Local Server"
   echo "since this script will ask you to input information into/from each other."
   echo -e "${YELLOW}Be advised, this script will modify your iptables & ufw(firewall) settings.${NC}"
+  echo -e "${CYAN}"
+  read -n 1 -s -r -p 'Press q to quit, any other key to contine' YORN
+  echo -e "${NC}"
+  if [[ $YORN == [Qq] ]]; then
+    echo "Exiting..."
+    exit
+  fi
 elif [[ $1 == "Local" ]]; then
   stop_wireguard
   update_system
