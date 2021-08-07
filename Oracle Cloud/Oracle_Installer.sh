@@ -143,7 +143,7 @@ create_server_config () {
   echo -e "${LCYAN}./Oracle_Installer.sh Local $PK_FOR_CLIENT $PUBLIC_IP $WG_SERVER_IP $WG_CLIENT_IP $WGPORT $PORTLIST${NC}"
   echo ""
   echo -e "${MAGEN}That script will output a public key for you to input here.${NC}"
-  read -p $'\e[36mPublic Key from Client\e0m: ' PK_FOR_SERVER
+  read -p $'\e[36mPublic Key from Client\e[0m: ' PK_FOR_SERVER
   echo "ListenPort = $WGPORT" >> $WGCONFLOC
   echo "Address = $WG_SERVER_IP/24" >> $WGCONFLOC
   echo "" >> $WGCONFLOC
@@ -262,6 +262,57 @@ setup_firewall () {
   echo -e "[${GREEN}ufw Configured${NC}]"
 }
 
+get_ports () {
+  OLDPORTS=$(cat $WGPORTSFILE)
+  SSHD_PORT=$(cat /etc/ssh/sshd_config | grep -E "Port [0-9]+" | grep -Eo "[0-9]+")
+  WGPORT=$(cat $WGCONFLOC | grep 'ListenPort' | awk '{print $3}')
+  echo "What ports/protcols do you want to pass through to your Local Server?"
+  echo "Please enter them like the following (comma separated, no spaces):"
+  echo "443/tcp,80/tcp,8123/udp,5128/tcp"
+  echo "If you don't want any other traffic added, just press enter"
+  echo -e "Your current ports are ${CYAN}$OLDPORTS${NC}"
+  echo ""
+  read -p $'\e[36mEntry\e[0m: ' PORTLIST
+  echo ""
+  echo -e "\e[1;35mBefore continuing with the rest of this script, please run this script on your Local Server with the following line\e[0m:"
+  echo ""
+  echo -e "\"\e[96msudo ./Oracle_Installer.sh LocalMod $PORTLIST\e[0m\""
+}
+
+ask_firewall () {
+  if [[ $1 == 1 ]]; then
+    echo "Since the ports have been modified, the firewall needs to be changed"
+    clear_firewall
+    setup_firewall
+  else
+    read -r -p $'\e[36mWould you like this script to configure your firewall? [Y/n]\e[0m' UFW_YN
+    if [[ ! "$UFW_YN" =~ ^([yY][eE][sS]|[yY]|"")$ ]]; then
+      echo -e "You should limit access to your server by using ufw as described in \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Limiting-Access\e[0m"
+      exit
+    else
+      clear_firewall
+      setup_firewall
+    fi
+  fi
+}
+
+start_wireguard () {
+  echo -en "${YELLOW}Starting wireguard services${NC}..."
+  systemctl start wg-quick@wg0 2> /dev/null
+  echo -e "[${GREEN}Done${NC}]"
+}
+
+modify_client_config () {
+
+}
+
+script_complete () {
+  echo "Your system has been configured.  If you need to reset the VPN link for any reason, please run 'systemctl reboot wg-quick@wg0'"
+}
+
+
+#**********************Begin Script************************************
+
 echo ""
 echo -e "${LGREEN}***************************************************"
 echo -e "*     ${WHITE}Oracle Cloud Wireguard Tunnel Installer${LGREEN}     *"
@@ -292,9 +343,14 @@ elif [[ $1 == "Local" ]]; then
   configure_forwarding
   create_keys
   create_client_config $3 $5 $6 $7 $2 $4
-  echo ""
-  echo "Your system has been configured.  If you need to reset the VPN link for any reason, please run 'systemctl reboot wg-quick@wg0'"
+  script_complete
   exit
+elif [[ $1 == "LocalMod" ]]; then
+  echo "Update Client Ports"
+  stop wireguard
+  modify_client_config
+  start_wireguard
+  script_complete
 fi
 
 FOUNDOLD=0
@@ -344,10 +400,12 @@ if [[ $FOUNDOLD == 1 ]]; then
         "Change Ports Passed Through")
           echo "CHANGE PORTS"
           stop_wireguard
-          break
+          get_ports
+          ask_firewall 1
+          script_complete
+          exit
           ;;
         "Create New Configuration")
-          echo "NEW"
           stop_wireguard
           update_system
           install_required
@@ -355,15 +413,8 @@ if [[ $FOUNDOLD == 1 ]]; then
           get_ips $5 $6 $3
           create_keys
           create_server_config
-          read -r -p $'\e[36mWould you like this script to configure your firewall? [Y/n]\e[0m' UFW_YN
-          if [[ ! "$UFW_YN" =~ ^([yY][eE][sS]|[yY]|"")$ ]]; then
-            echo -e "You should limit access to your server by using ufw as described in \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Limiting-Access\e[0m"
-          exit
-          fi
-          clear_firewall
-          setup_firewall
-          echo ""
-          echo "Your system has been configured.  If you need to reset the VPN link for any reason, please run 'systemctl reboot wg-quick@wg0'"
+          ask_firewall
+          script_complete
           exit
           ;;
         "Exit Script")
@@ -378,8 +429,8 @@ if [[ $FOUNDOLD == 1 ]]; then
     do
       case $opt in
         "Change Port Numbers")
-          echo "CHANGE PORT NUMS"
-          break
+          echo -e "${RED}Please run this script on the VPS to modify the ports${NC}"
+          exit
           ;;
         "Change Port->IP Mapping")
           echo "MAPPING"
@@ -400,13 +451,6 @@ else
   get_ips $5 $6 $3
   create_keys
   create_server_config
-  read -r -p $'\e[36mWould you like this script to configure your firewall? [Y/n]\e[0m' UFW_YN
-  if [[ ! "$UFW_YN" =~ ^([yY][eE][sS]|[yY]|"")$ ]]; then
-    echo -e "You should limit access to your server by using ufw as described in \e[94;4mhttps://github.com/mochman/Bypass_CGNAT/wiki/Limiting-Access\e[0m"
-  exit
-  fi
-  clear_firewall
-  setup_firewall
-  echo ""
-  echo "Your system has been configured.  If you need to reset the VPN link for any reason, please run 'systemctl reboot wg-quick@wg0'"
+  ask_firewall
+  script_complete
 fi
