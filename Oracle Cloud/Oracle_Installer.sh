@@ -335,6 +335,10 @@ modify_client_config () {
   echo ""
 }
 
+modify_mapping () {
+
+}
+
 script_complete () {
   echo ""
   echo -e "Your system has been configured.  If you need to reset the VPN link for any reason, please run ${CYAN}sudo systemctl reboot wg-quick@wg0${NC}"
@@ -394,7 +398,7 @@ if grep -q -E 'PrivateKey = .+' $WGCONFLOC 2>/dev/null; then
     FOUNDTYPE=2
     FOUNDOLD=1
     SERVERTYPE=2
-    options=("Change Port Numbers" "Change Port->IP Mapping" "Exit Script")
+    options=("Change Port Numbers" "Change Port->IP Mapping" "Reload Wireguard Service" "Exit Script")
   else
     # Server
     FOUNDTYPE=1
@@ -431,7 +435,9 @@ if [[ $FOUNDOLD == 1 ]]; then
         "Change Ports Passed Through")
           echo ""
           stop_wireguard
+          echo ""
           get_ports
+          echo ""
           ask_firewall 1
           start_wireguard
           script_complete
@@ -454,7 +460,6 @@ if [[ $FOUNDOLD == 1 ]]; then
           echo ""
           stop_wireguard
           start_wireguard
-          echo ""
           exit
           ;;
         "Exit Script")
@@ -473,8 +478,18 @@ if [[ $FOUNDOLD == 1 ]]; then
           exit
           ;;
         "Change Port->IP Mapping")
-          echo "MAPPING"
+          stop_wireguard
+          echo ""
+          modify_mapping
+          echo ""
+          start_wireguard
           break
+          ;;
+        "Reload Wireguard Service")
+          echo ""
+          stop_wireguard
+          start_wireguard
+          exit
           ;;
         "Exit Script")
           exit
