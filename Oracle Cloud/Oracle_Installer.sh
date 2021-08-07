@@ -1,4 +1,7 @@
 #!/bin/bash
+# Installation script for wireguard using an Oracle Cloud VPS
+# https://github.com/mochman/Bypass_CGNAT
+
 if [ $EUID != 0 ]; then
   sudo "$0" "$@"
   exit $?
@@ -140,7 +143,7 @@ create_server_config () {
   echo -e "[${GREEN}Done${NC}]"
   echo ""
   echo ""
-  echo -e "${MAGEN}Before continuing with the rest of this script, please run this script on your Local Server with the following line{$NC}:"
+  echo -e "${MAGEN}Before continuing with the rest of this script, please run this script on your Local Server with the following line${NC}:"
   echo ""
   echo -e "${LCYAN}./Oracle_Installer.sh Local $PK_FOR_CLIENT $PUBLIC_IP $WG_SERVER_IP $WG_CLIENT_IP $WGPORT $PORTLIST${NC}"
   echo ""
@@ -410,7 +413,7 @@ if grep -q -E 'PrivateKey = .+' $WGCONFLOC 2>/dev/null; then
     FOUNDTYPE=2
     FOUNDOLD=1
     SERVERTYPE=2
-    options=("Change Port Numbers" "Change Port->IP Mapping" "Reload Wireguard Service" "Exit Script")
+    options=("Change Port->IP Mapping" "Reload Wireguard Service" "Exit Script")
   else
     # Server
     FOUNDTYPE=1
@@ -485,10 +488,6 @@ if [[ $FOUNDOLD == 1 ]]; then
     select opt in "${options[@]}"
     do
       case $opt in
-        "Change Port Numbers")
-          echo -e "${RED}Please run this script on the VPS to modify the ports${NC}"
-          exit
-          ;;
         "Change Port->IP Mapping")
           stop_wireguard
           echo ""
