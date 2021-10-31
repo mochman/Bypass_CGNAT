@@ -9,6 +9,7 @@ fi
 
 WGCONFLOC='/etc/wireguard/wg0.conf'
 WGPUBKEY='/etc/wireguard/publickey'
+WGCLIENTIPFILE='/etc/wireguard/client_ip'
 WGPORTSFILE='/etc/wireguard/forwarded_ports'
 WGCONFBOTTOM='/etc/wireguard/bottom_section'
 WGCONFTOP='/etc/wireguard/top_section'
@@ -110,6 +111,9 @@ get_ips () {
       exit 1
     fi
   done
+  echo -en "${YELLOW}Saving Client IP to file${NC}..."
+  echo $WG_CLIENT_IP > $WGCLIENTIPFILE
+  echo -e "[${GREEN}Done${NC}]"
 }
 
 create_keys () {
@@ -264,6 +268,11 @@ clear_firewall () {
 }
 
 setup_firewall () {
+  if test -n "${WGPORT-}"; then
+    echo "" >/dev/null
+  else
+    WGPORT=$(cat $WGCONFLOC | grep 'ListenPort' | awk '{print $3}')
+  fi
   echo "Configuring ufw rules"
   echo "  Allowing OpenSSH($SSHD_PORT/tcp)"
   ufw allow $SSHD_PORT/tcp > /dev/null
@@ -301,6 +310,7 @@ get_ports () {
   OLDPORTS=$(cat $WGPORTSFILE)
   SSHD_PORT=$(cat /etc/ssh/sshd_config | grep -E "Port [0-9]+" | grep -Eo "[0-9]+")
   WGPORT=$(cat $WGCONFLOC | grep 'ListenPort' | awk '{print $3}')
+  WG_CLIENT_IP=$(cat $WGCLIENTIPFILE)
   echo "What ports/protcols do you want to pass through to your Local Server?"
   echo "Please enter them like the following (comma separated, no spaces):"
   echo "443/tcp,80/tcp,8123/udp,5128/tcp"
