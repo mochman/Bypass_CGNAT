@@ -9,6 +9,7 @@ fi
 
 WGCONFLOC='/etc/wireguard/wg0.conf'
 WGPUBKEY='/etc/wireguard/publickey'
+WGCLIENTIPFILE='/etc/wireguard/client_ip'
 WGPORTSFILE='/etc/wireguard/forwarded_ports'
 WGCONFBOTTOM='/etc/wireguard/bottom_section'
 WGCONFTOP='/etc/wireguard/top_section'
@@ -110,6 +111,9 @@ get_ips () {
       exit 1
     fi
   done
+  echo -en "${YELLOW}Saving Client IP to file${NC}..."
+  echo $WG_CLIENT_IP > $WGCLIENTIPFILE
+  echo -e "[${GREEN}Done${NC}]"
 }
 
 create_keys () {
@@ -126,7 +130,7 @@ create_server_config () {
   SSHD_PORT=$(cat /etc/ssh/sshd_config | grep -E "Port [0-9]+" | grep -Eo "[0-9]+")
   echo -en "${YELLOW}Flushing default iptables${NC}..."
   iptables -F
-  iptables -X
+  iptables -t nat -F
   echo -e "[${GREEN}Done${NC}]"
   echo ""
   echo "What ports/protcols do you want to pass through to your Local Server?"
@@ -152,11 +156,35 @@ create_server_config () {
   echo "ListenPort = $WGPORT" >> $WGCONFLOC
   echo "Address = $WG_SERVER_IP/24" >> $WGCONFLOC
   echo "" >> $WGCONFLOC
-  echo "PostUp = iptables -t nat -A PREROUTING -p tcp -i $TUNNEL_INT '!' --dport $SSHD_PORT -j DNAT --to-destination $WG_CLIENT_IP; iptables -t nat -A POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> $WGCONFLOC
-  echo "PostUp = iptables -t nat -A PREROUTING -p udp -i $TUNNEL_INT '!' --dport $WGPORT -j DNAT --to-destination $WG_CLIENT_IP;" >> $WGCONFLOC
+  TCP_PORTS=""
+  UDP_PORTS=""
+  for i in $(echo $PORTLIST | sed "s/,/ /g")
+  do
+    PORT=$(echo $i| cut -d'/' -f 1)
+    PROT=$(echo $i| cut -d'/' -f 2)
+    if [ $PROT == "tcp" ]; then
+      TCP_PORTS+="${PORT},"
+    elif [ $PROT == "udp" ]; then
+      UDP_PORTS+="${PORT},"
+    fi
+  done
+  TCP_PORTS=${TCP_PORTS%?}
+  UDP_PORTS=${UDP_PORTS%?}
+  if [ ${#TCP_PORTS} -ge 1 ]; then
+    echo "PostUp = iptables -t nat -A PREROUTING -p tcp -i $TUNNEL_INT --match multiport --dports ${TCP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP" >> $WGCONFLOC
+  fi
+  echo "PostUp = iptables -t nat -A POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> $WGCONFLOC
+  if [ ${#UDP_PORTS} -ge 1 ]; then
+    echo "PostUp = iptables -t nat -A PREROUTING -p udp -i $TUNNEL_INT --match multiport --dports ${UDP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP;" >> $WGCONFLOC
+  fi
   echo "" >> $WGCONFLOC
-  echo "PostDown = iptables -t nat -D PREROUTING -p tcp -i $TUNNEL_INT '!' --dport $SSHD_PORT -j DNAT --to-destination $WG_CLIENT_IP; iptables -t nat -D POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> $WGCONFLOC
-  echo "PostDown = iptables -t nat -D PREROUTING -p udp -i $TUNNEL_INT '!' --dport $WGPORT -j DNAT --to-destination $WG_CLIENT_IP;" >> $WGCONFLOC
+  if [ ${#TCP_PORTS} -ge 1 ]; then
+    echo "PostDown = iptables -t nat -D PREROUTING -p tcp -i $TUNNEL_INT --match multiport --dports ${TCP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP" >> $WGCONFLOC
+  fi
+  echo "PostDown = iptables -t nat -D POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> $WGCONFLOC
+  if [ ${#UDP_PORTS} -ge 1 ]; then
+    echo "PostDown = iptables -t nat -D PREROUTING -p udp -i $TUNNEL_INT --match multiport --dports ${UDP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP;" >> $WGCONFLOC
+  fi
   echo "" >> $WGCONFLOC
   echo "[Peer]" >> $WGCONFLOC
   echo "PublicKey = $PK_FOR_SERVER" >> $WGCONFLOC
@@ -167,7 +195,7 @@ create_server_config () {
   systemctl start wg-quick@wg0
   echo -e "[${GREEN}Done${NC}]"
   echo -e "${YELLOW}Waiting for connection${NC}..."
-  while ! ping -c 1 -W 1 $WG_CLIENT_IP > /dev/null; do
+  while ! ping -c 1 -W 1 $WG_CLIENT_IP > /dev/null 2>&1; do
     printf '.'
     sleep 2
   done
@@ -238,6 +266,11 @@ clear_firewall () {
 }
 
 setup_firewall () {
+  if test -n "${WGPORT-}"; then
+    echo "" >/dev/null
+  else
+    WGPORT=$(cat $WGCONFLOC | grep 'ListenPort' | awk '{print $3}')
+  fi
   echo "Configuring ufw rules"
   echo "  Allowing OpenSSH($SSHD_PORT/tcp)"
   ufw allow $SSHD_PORT/tcp > /dev/null
@@ -275,6 +308,9 @@ get_ports () {
   OLDPORTS=$(cat $WGPORTSFILE)
   SSHD_PORT=$(cat /etc/ssh/sshd_config | grep -E "Port [0-9]+" | grep -Eo "[0-9]+")
   WGPORT=$(cat $WGCONFLOC | grep 'ListenPort' | awk '{print $3}')
+  WG_CLIENT_IP=$(cat $WGCLIENTIPFILE)
+  TUNNEL_IP=$(ip -4 a show scope global | grep global | awk '{print $2}' | sed 's/\/.*//g')
+  TUNNEL_INT=$(ip -4 a show scope global | grep global | awk '{print $7}')
   echo "What ports/protcols do you want to pass through to your Local Server?"
   echo "Please enter them like the following (comma separated, no spaces):"
   echo "443/tcp,80/tcp,8123/udp,5128/tcp"
@@ -286,6 +322,39 @@ get_ports () {
   echo -en "${YELLOW}Saving ports to ${WGPORTSFILE}${NC}..."
   echo $PORTLIST > $WGPORTSFILE
   echo -e "[${GREEN}Done${NC}]"
+  sed -i '/^Post/d' $WGCONFLOC
+  sed -i '/^$/d' $WGCONFLOC
+  sed -i '4 a \\' $WGCONFLOC
+  sed -i '4 a \\' $WGCONFLOC
+  TCP_PORTS=""
+  UDP_PORTS=""
+  for i in $(echo $PORTLIST | sed "s/,/ /g")
+  do
+    PORT=$(echo $i| cut -d'/' -f 1)
+    PROT=$(echo $i| cut -d'/' -f 2)
+    if [ $PROT == "tcp" ]; then
+      TCP_PORTS+="${PORT},"
+    elif [ $PROT == "udp" ]; then
+      UDP_PORTS+="${PORT},"
+    fi
+  done
+  TCP_PORTS=${TCP_PORTS%?}
+  UDP_PORTS=${UDP_PORTS%?}
+  if [ ${#UDP_PORTS} -ge 1 ]; then
+    sed -i "5 a PostDown = iptables -t nat -D PREROUTING -p udp -i $TUNNEL_INT --match multiport --dports ${UDP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP;" $WGCONFLOC
+  fi
+  sed -i "5 a PostDown = iptables -t nat -D POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" $WGCONFLOC
+  if [ ${#TCP_PORTS} -ge 1 ]; then
+    sed -i "5 a PostDown = iptables -t nat -D PREROUTING -p tcp -i $TUNNEL_INT --match multiport --dports ${TCP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP" $WGCONFLOC
+  fi
+  sed -i '5 a \\' $WGCONFLOC
+  if [ ${#UDP_PORTS} -ge 1 ]; then
+    sed -i "5 a PostUp = iptables -t nat -A PREROUTING -p udp -i $TUNNEL_INT --match multiport --dports ${UDP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP;" $WGCONFLOC
+  fi
+  sed -i "5 a PostUp = iptables -t nat -A POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" $WGCONFLOC
+  if [ ${#TCP_PORTS} -ge 1 ]; then
+    sed -i "5 a PostUp = iptables -t nat -A PREROUTING -p tcp -i $TUNNEL_INT --match multiport --dports ${TCP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP" $WGCONFLOC
+  fi
   echo ""
   echo -e "\e[1;35mBefore continuing with the rest of this script, please run this script on your Local Server with the following line\e[0m:"
   echo ""
@@ -366,7 +435,7 @@ clear
 echo ""
 echo -e "${LGREEN}***************************************************"
 echo -e "*     ${WHITE}Oracle Cloud Wireguard Tunnel Installer${LGREEN}     *"
-echo -e "*                ${LBLUE}Version 0.1.0               ${LGREEN}     *"
+echo -e "*                ${LBLUE}Version 0.2.0               ${LGREEN}     *"
 echo -e "***************************************************${NC}"
 echo ""
 echo "This script will install and configure wireguard on your machines."
