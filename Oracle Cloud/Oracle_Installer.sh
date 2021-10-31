@@ -130,9 +130,7 @@ create_server_config () {
   SSHD_PORT=$(cat /etc/ssh/sshd_config | grep -E "Port [0-9]+" | grep -Eo "[0-9]+")
   echo -en "${YELLOW}Flushing default iptables${NC}..."
   iptables -F
-  iptables -X
   iptables -t nat -F
-  iptables -t nat -X
   echo -e "[${GREEN}Done${NC}]"
   echo ""
   echo "What ports/protcols do you want to pass through to your Local Server?"
@@ -311,6 +309,8 @@ get_ports () {
   SSHD_PORT=$(cat /etc/ssh/sshd_config | grep -E "Port [0-9]+" | grep -Eo "[0-9]+")
   WGPORT=$(cat $WGCONFLOC | grep 'ListenPort' | awk '{print $3}')
   WG_CLIENT_IP=$(cat $WGCLIENTIPFILE)
+  TUNNEL_IP=$(ip -4 a show scope global | grep global | awk '{print $2}' | sed 's/\/.*//g')
+  TUNNEL_INT=$(ip -4 a show scope global | grep global | awk '{print $7}')
   echo "What ports/protcols do you want to pass through to your Local Server?"
   echo "Please enter them like the following (comma separated, no spaces):"
   echo "443/tcp,80/tcp,8123/udp,5128/tcp"
@@ -322,6 +322,39 @@ get_ports () {
   echo -en "${YELLOW}Saving ports to ${WGPORTSFILE}${NC}..."
   echo $PORTLIST > $WGPORTSFILE
   echo -e "[${GREEN}Done${NC}]"
+  sed -i '/^Post/d' $WGCONFLOC
+  sed -i '/^$/d' $WGCONFLOC
+  sed -i '4 a \\' $WGCONFLOC
+  sed -i '4 a \\' $WGCONFLOC
+  TCP_PORTS=""
+  UDP_PORTS=""
+  for i in $(echo $PORTLIST | sed "s/,/ /g")
+  do
+    PORT=$(echo $i| cut -d'/' -f 1)
+    PROT=$(echo $i| cut -d'/' -f 2)
+    if [ $PROT == "tcp" ]; then
+      TCP_PORTS+="${PORT},"
+    elif [ $PROT == "udp" ]; then
+      UDP_PORTS+="${PORT},"
+    fi
+  done
+  TCP_PORTS=${TCP_PORTS%?}
+  UDP_PORTS=${UDP_PORTS%?}
+  if [ ${#UDP_PORTS} -ge 1 ]; then
+    sed -i "5 a PostDown = iptables -t nat -D PREROUTING -p udp -i $TUNNEL_INT --match multiport --dports ${UDP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP;" $WGCONFLOC
+  fi
+  sed -i "5 a PostDown = iptables -t nat -D POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" $WGCONFLOC
+  if [ ${#TCP_PORTS} -ge 1 ]; then
+    sed -i "5 a PostDown = iptables -t nat -D PREROUTING -p tcp -i $TUNNEL_INT --match multiport --dports ${TCP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP" $WGCONFLOC
+  fi
+  sed -i '5 a \\' $WGCONFLOC
+  if [ ${#UDP_PORTS} -ge 1 ]; then
+    sed -i "5 a PostUp = iptables -t nat -A PREROUTING -p udp -i $TUNNEL_INT --match multiport --dports ${UDP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP;" $WGCONFLOC
+  fi
+  sed -i "5 a PostUp = iptables -t nat -A POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" $WGCONFLOC
+  if [ ${#TCP_PORTS} -ge 1 ]; then
+    sed -i "5 a PostUp = iptables -t nat -A PREROUTING -p tcp -i $TUNNEL_INT --match multiport --dports ${TCP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP" $WGCONFLOC
+  fi
   echo ""
   echo -e "\e[1;35mBefore continuing with the rest of this script, please run this script on your Local Server with the following line\e[0m:"
   echo ""
