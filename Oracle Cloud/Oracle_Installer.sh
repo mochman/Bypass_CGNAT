@@ -151,12 +151,26 @@ create_server_config () {
   read -p $'\e[36mPublic Key from Client\e[0m: ' PK_FOR_SERVER
   echo "ListenPort = $WGPORT" >> $WGCONFLOC
   echo "Address = $WG_SERVER_IP/24" >> $WGCONFLOC
+  echo "" #>> $WGCONFLOC
+  TCP_PORTS=""
+  UDP_PORTS=""
+  for i in $(echo $PORTLIST | sed "s/,/ /g")
+  do
+    PORT=$(echo $i| cut -d'/' -f 1)
+    PROT=$(echo $i| cut -d'/' -f 2)
+    if [ $PROT == "tcp" ]; then
+      TCP_PORTS+="${PORT},"
+    elif [ $PROT == "udp" ]; then
+      UDP_PORTS+="${PORT},"
+    fi
+  done
+  TCP_PORTS+=${SSHD_PORT}
+  UDP_PORTS+=${WGPORT}
+  echo "PostUp = iptables -t nat -A PREROUTING -p tcp -i $TUNNEL_INT --match multiport --dports ${TCP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP; iptables -t nat -A POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> $WGCONFLOC"
+  echo "PostUp = iptables -t nat -A PREROUTING -p udp -i $TUNNEL_INT --match multiport --dports ${UDP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP;" >> $WGCONFLOC
   echo "" >> $WGCONFLOC
-  echo "PostUp = iptables -t nat -A PREROUTING -p tcp -i $TUNNEL_INT '!' --dport $SSHD_PORT -j DNAT --to-destination $WG_CLIENT_IP; iptables -t nat -A POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> $WGCONFLOC
-  echo "PostUp = iptables -t nat -A PREROUTING -p udp -i $TUNNEL_INT '!' --dport $WGPORT -j DNAT --to-destination $WG_CLIENT_IP;" >> $WGCONFLOC
-  echo "" >> $WGCONFLOC
-  echo "PostDown = iptables -t nat -D PREROUTING -p tcp -i $TUNNEL_INT '!' --dport $SSHD_PORT -j DNAT --to-destination $WG_CLIENT_IP; iptables -t nat -D POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> $WGCONFLOC
-  echo "PostDown = iptables -t nat -D PREROUTING -p udp -i $TUNNEL_INT '!' --dport $WGPORT -j DNAT --to-destination $WG_CLIENT_IP;" >> $WGCONFLOC
+  echo "PostDown = iptables -t nat -D PREROUTING -p tcp -i $TUNNEL_INT --match multiport --dports ${TCP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP; iptables -t nat -D POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> $WGCONFLOC"
+  echo "PostDown = iptables -t nat -D PREROUTING -p udp -i $TUNNEL_INT --match multiport --dports ${UDP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP;" >> $WGCONFLOC
   echo "" >> $WGCONFLOC
   echo "[Peer]" >> $WGCONFLOC
   echo "PublicKey = $PK_FOR_SERVER" >> $WGCONFLOC
@@ -366,7 +380,7 @@ clear
 echo ""
 echo -e "${LGREEN}***************************************************"
 echo -e "*     ${WHITE}Oracle Cloud Wireguard Tunnel Installer${LGREEN}     *"
-echo -e "*                ${LBLUE}Version 0.1.0               ${LGREEN}     *"
+echo -e "*                ${LBLUE}Version 0.2.0               ${LGREEN}     *"
 echo -e "***************************************************${NC}"
 echo ""
 echo "This script will install and configure wireguard on your machines."
