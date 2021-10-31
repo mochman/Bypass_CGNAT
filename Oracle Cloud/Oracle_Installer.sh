@@ -127,6 +127,8 @@ create_server_config () {
   echo -en "${YELLOW}Flushing default iptables${NC}..."
   iptables -F
   iptables -X
+  iptables -t nat -F
+  iptables -t nat -X
   echo -e "[${GREEN}Done${NC}]"
   echo ""
   echo "What ports/protcols do you want to pass through to your Local Server?"
@@ -151,7 +153,7 @@ create_server_config () {
   read -p $'\e[36mPublic Key from Client\e[0m: ' PK_FOR_SERVER
   echo "ListenPort = $WGPORT" >> $WGCONFLOC
   echo "Address = $WG_SERVER_IP/24" >> $WGCONFLOC
-  echo "" #>> $WGCONFLOC
+  echo "" >> $WGCONFLOC
   TCP_PORTS=""
   UDP_PORTS=""
   for i in $(echo $PORTLIST | sed "s/,/ /g")
@@ -164,13 +166,23 @@ create_server_config () {
       UDP_PORTS+="${PORT},"
     fi
   done
-  TCP_PORTS+=${SSHD_PORT}
-  UDP_PORTS+=${WGPORT}
-  echo "PostUp = iptables -t nat -A PREROUTING -p tcp -i $TUNNEL_INT --match multiport --dports ${TCP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP; iptables -t nat -A POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> $WGCONFLOC"
-  echo "PostUp = iptables -t nat -A PREROUTING -p udp -i $TUNNEL_INT --match multiport --dports ${UDP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP;" >> $WGCONFLOC
+  TCP_PORTS=${TCP_PORTS%?}
+  UDP_PORTS=${UDP_PORTS%?}
+  if [ ${#TCP_PORTS} -ge 1 ]; then
+    echo "PostUp = iptables -t nat -A PREROUTING -p tcp -i $TUNNEL_INT --match multiport --dports ${TCP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP" >> $WGCONFLOC
+  fi
+  echo "PostUp = iptables -t nat -A POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> $WGCONFLOC
+  if [ ${#UDP_PORTS} -ge 1 ]; then
+    echo "PostUp = iptables -t nat -A PREROUTING -p udp -i $TUNNEL_INT --match multiport --dports ${UDP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP;" >> $WGCONFLOC
+  fi
   echo "" >> $WGCONFLOC
-  echo "PostDown = iptables -t nat -D PREROUTING -p tcp -i $TUNNEL_INT --match multiport --dports ${TCP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP; iptables -t nat -D POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> $WGCONFLOC"
-  echo "PostDown = iptables -t nat -D PREROUTING -p udp -i $TUNNEL_INT --match multiport --dports ${UDP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP;" >> $WGCONFLOC
+  if [ ${#TCP_PORTS} -ge 1 ]; then
+    echo "PostDown = iptables -t nat -D PREROUTING -p tcp -i $TUNNEL_INT --match multiport --dports ${TCP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP" >> $WGCONFLOC
+  fi
+  echo "PostDown = iptables -t nat -D POSTROUTING -o $TUNNEL_INT -j SNAT --to-source $TUNNEL_IP" >> $WGCONFLOC
+  if [ ${#UDP_PORTS} -ge 1 ]; then
+    echo "PostDown = iptables -t nat -D PREROUTING -p udp -i $TUNNEL_INT --match multiport --dports ${UDP_PORTS} -j DNAT --to-destination $WG_CLIENT_IP;" >> $WGCONFLOC
+  fi
   echo "" >> $WGCONFLOC
   echo "[Peer]" >> $WGCONFLOC
   echo "PublicKey = $PK_FOR_SERVER" >> $WGCONFLOC
@@ -181,7 +193,7 @@ create_server_config () {
   systemctl start wg-quick@wg0
   echo -e "[${GREEN}Done${NC}]"
   echo -e "${YELLOW}Waiting for connection${NC}..."
-  while ! ping -c 1 -W 1 $WG_CLIENT_IP > /dev/null; do
+  while ! ping -c 1 -W 1 $WG_CLIENT_IP > /dev/null 2>&1; do
     printf '.'
     sleep 2
   done
