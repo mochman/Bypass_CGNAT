@@ -425,7 +425,7 @@ mapping_change () {
 
 script_complete () {
   echo ""
-  echo -e "Your system has been configured.  If you need to reset the VPN link for any reason, please run ${CYAN}sudo systemctl reboot wg-quick@wg0${NC}"
+  echo -e "Your system has been configured.  If you need to reset the VPN link for any reason, please run ${CYAN}sudo systemctl restart wg-quick@wg0${NC}"
   echo ""
 }
 
