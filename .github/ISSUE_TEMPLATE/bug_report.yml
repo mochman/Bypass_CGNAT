@@ -1,5 +1,2 @@
 name: Problem Report
 description: Report a problem.
-title: "Problem"
-labels: [bug],
-assignees: mochman
