@@ -1,32 +1,32 @@
 ---
-name: Bug report
+name: Problem Report
 about: Create a report to help us improve
-title: "[BUG]"
+title: "Problem"
 labels: Bug :shield:,
 assignees: mochman
 
 ---
 
-### Describe the problem:
+## Describe the Problem:
 A clear and concise description of what the problem.
 
-### To Reproduce:
+## To Reproduce:
 Steps to reproduce the behavior:
 1. Go to '...'
 2. Click on '....'
 3. Scroll down to '....'
 4. See error
 
-### Expected behavior:
+## Expected behavior:
 A clear and concise description of what you expected to happen.
 
-### Script Version:
+## Script Version:
 If using the automated script, which version?
 
-### VPS wireguard config (/etc/wireguard/wg0.conf):
+## VPS wireguard config (/etc/wireguard/wg0.conf):
 *Please clear out all public IPs and Public/Private Keys*
 
-### Local Server wireguard config (/etc/wireguard/wg0.conf):
+## Local Server wireguard config (/etc/wireguard/wg0.conf):
 *Please clear out all public IPs and Public/Private Keys*
 
 ### Screenshots:
