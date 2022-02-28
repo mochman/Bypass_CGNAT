@@ -1,0 +1,17 @@
+name: Template Validator
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  template_validator:
+    runs-on: ubuntu-latest
+    name: Template Validator
+    steps:
+    - name: Template Validator
+      uses: ranemihir/template-validator@v1.0
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        issue--greeting-message: 'Thank you for your contribution'
+
