@@ -8,3 +8,13 @@ body:
   - type: markdown
     attributes:
       value: This form is for reporting problems.
+
+  - type: checkboxes
+      id: terms
+      attributes:
+        label: Terms
+        options:
+          - label: This request is not a duplicate of an existing issue.
+            required: true
+          - label: I have provided as much information as I can to help resolve this issue.
+            required: true
