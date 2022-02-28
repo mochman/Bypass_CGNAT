@@ -58,3 +58,17 @@ body:
       description: If using automated script, which version, otherwise put in 'Manual'.
     validations:
       required: true
+
+  - type: textarea
+    id: server-config
+    attributes:
+      label: VPS wireguard config (/etc/wireguard/wg0.conf)
+      description: Please copy and paste the config.  CLEAR OUT PUBLIC IPs AND KEYS.
+      render: shell
+
+  - type: textarea
+    id: client-config
+    attributes:
+      label: Local Server wireguard config (/etc/wireguard/wg0.conf)
+      description: Please copy and paste the config.  CLEAR OUT PUBLIC IPs AND KEYS.
+      render: shell
