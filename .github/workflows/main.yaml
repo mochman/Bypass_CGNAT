@@ -1,6 +1,7 @@
 name: Autoclose
-on: [issues]
-  types: [opened, edited, reopened]
+on: 
+  issues:
+    types: [opened, edited, reopened]
 jobs:
   autoclose:
     runs-on: ubuntu-latest
