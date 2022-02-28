@@ -18,3 +18,27 @@ body:
           required: true
         - label: I have provided as much information as I can to help resolve this issue.
           required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      value: |
+        #### Describe the problem.
+
+        #### A clear and concice description 
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: steps-to-reproduce
+      description: |
+        Please provide reproduction steps as detailed as possible
+      value: |
+        1. Go to '...'
+        2. Click on '....'
+        3. Run '....'
+    validations:
+      required: true
