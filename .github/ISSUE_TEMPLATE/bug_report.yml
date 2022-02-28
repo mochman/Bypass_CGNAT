@@ -42,3 +42,19 @@ body:
         3. Run '....'
     validations:
       required: true
+      
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      placeholder: What actually happens?
+    validations:
+      required: true
+
+  - type: textarea
+    id: script-version
+    attributes:
+      label: Script Version
+      description: If using automated script, which version, otherwise put in 'Manual'.
+    validations:
+      required: true
