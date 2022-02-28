@@ -3,3 +3,9 @@ description: Report a problem.
 title: "Problem - "
 labels: [bug]
 assignees: mochman
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This form is for reporting problems.
