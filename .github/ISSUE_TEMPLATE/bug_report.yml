@@ -31,7 +31,7 @@ body:
       required: true
 
   - type: textarea
-    id: description
+    id: steps-reproduce
     attributes:
       label: steps-to-reproduce
       description: |
