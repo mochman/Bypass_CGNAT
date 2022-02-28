@@ -13,5 +13,3 @@ jobs:
       uses: ranemihir/template-validator@v1.0
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        issue--greeting-message: 'Thank you for your contribution'
-
