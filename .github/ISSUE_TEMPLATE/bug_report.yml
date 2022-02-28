@@ -7,5 +7,4 @@ assignees: mochman
 body:
   - type: markdown
     attributes:
-      value: |
-        This form is for reporting problems.
+      value: This form is for reporting problems.
