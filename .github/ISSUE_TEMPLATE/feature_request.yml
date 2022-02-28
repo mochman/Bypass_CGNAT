@@ -1,0 +1,54 @@
+name: Feature Request
+description: Suggest an idea for this project
+title: "Feature - "
+labels: [enhancement]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This form is for suggesting an idea for this project.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Terms
+      options:
+        - label: This request is not a duplicate of an existing feature
+          required: true
+        - label: I have provided as much information as I can about the new feature.
+          required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One paragraph explanation of the feature.
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      value: |
+        #### Why are we doing this?
+
+        #### What use cases does it support?
+
+        #### What is the expected outcome?
+
+        #### Potential conflicts / foreseeable issues
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context or screenshots about the feature request here.
+
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this feature request form!
