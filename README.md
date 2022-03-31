@@ -21,5 +21,9 @@ Here is a basic diagram of my configuration.  The IPs and ports will need to be 
 
 ## If this is something you would like to try out, please go to the [wiki section](https://github.com/mochman/Bypass_CGNAT/wiki) to start the tutorial.
 
-# Other CGNAT Bypass Setups
+# Other ways to bypass a CGNAT
 [Wireguard Installer for Gaming](https://github.com/xiahualiu/wg_gaming_installer) - Can be used to bypass a CGNAT so you can have a **Full Clone NAT**
+
+[Cloudflared Tunnels](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/tunnel-guide/)
+
+[BoringProxy](https://boringproxy.io/)
