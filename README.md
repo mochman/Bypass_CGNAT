@@ -27,3 +27,5 @@ Here is a basic diagram of my configuration.  The IPs and ports will need to be 
 [Cloudflared Tunnels](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/tunnel-guide/)
 
 [BoringProxy](https://boringproxy.io/)
+
+[ZeroTier](https://www.zerotier.com/) [(u/RedKyet's Tutorial)](https://www.reddit.com/r/selfhosted/comments/u8n5hz/how_to_bypass_cgnat_and_expose_your_server_to_the/)
