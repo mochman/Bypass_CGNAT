@@ -125,7 +125,23 @@ create_keys () {
 
 create_server_config () {
   PK_FOR_CLIENT=$(cat $WGPUBKEY)
-  TUNNEL_INT=$(ip -4 a show | grep global | grep -v 172. | awk '{print $(NF)}')
+  TUNNEL_INT_1=$(ip route get 1.1.1.1 | head -n 1 | awk -- '{print $5}')
+  TUNNEL_INT_2=$(ip -4 a s scope global | grep global | awk '{print $(NF)}' | grep -E '^e' | head -n 1)
+  if [ "${TUNNEL_INT_1}" == "${TUNNEL_INT_2}" ]; then
+    TUNNEL_INT=${TUNNEL_INT_1}
+  else
+  echo "Network interface cannot be automatically set"
+  PS3="Enter interface number: "
+  select TUNNEL_INT_SEL in ${TUNNEL_INT_1} ${TUNNEL_INT_2}
+  do
+    if [ "${TUNNEL_INT_SEL}" == "${TUNNEL_INT_1}" ] || [ "${TUNNEL_INT_SEL}" == "${TUNNEL_INT_2}" ]; then
+      TUNNEL_INT=${TUNNEL_INT_SEL}
+      break;
+    else
+      echo "Please input the number of the network interface"
+    fi
+  done
+  fi
   TUNNEL_IP=$(ip -4 a show scope global | grep global | grep ${TUNNEL_INT} | awk '{print $2}' | sed 's/\/.*//g')
   SSHD_PORT=$(cat /etc/ssh/sshd_config | grep -E "Port [0-9]+" | grep -Eo "[0-9]+")
   echo -en "${YELLOW}Flushing default iptables${NC}..."
