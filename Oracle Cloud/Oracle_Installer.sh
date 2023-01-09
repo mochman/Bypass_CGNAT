@@ -126,7 +126,7 @@ create_keys () {
 create_server_config () {
   PK_FOR_CLIENT=$(cat $WGPUBKEY)
   TUNNEL_IP=$(ip -4 a show scope global | grep global | awk '{print $2}' | sed 's/\/.*//g')
-  TUNNEL_INT=$(ip -4 a show scope global | grep global | awk '{print $7}')
+  TUNNEL_INT=$(ip -4 a show scope global | grep global | grep -v "172." | grep -v "wg0" | awk '{print $(NF)}')
   SSHD_PORT=$(cat /etc/ssh/sshd_config | grep -E "Port [0-9]+" | grep -Eo "[0-9]+")
   echo -en "${YELLOW}Flushing default iptables${NC}..."
   iptables -F
