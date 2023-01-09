@@ -131,7 +131,7 @@ echo ""
 if [ $SERVERTYPE -eq 1 ]; then
   PK_FOR_CLIENT=$(cat /etc/wireguard/publickey)
   TUNNEL_IP=$(ip -4 a show scope global | grep global | awk '{print $2}' | sed 's/\/.*//g' | grep -ve ^10\.)
-  TUNNEL_INT=$(ip -4 a show scope global | grep global | grep $TUNNEL_IP | awk '{print $7}')
+  TUNNEL_INT=$(ip -4 a show scope global | grep global | grep -v " 172." | grep -v " 10." | grep -v "wg0" | awk '{print $(NF)}')
   SSHD_PORT=$(cat /etc/ssh/sshd_config | grep -E "Port [0-9]+" | grep -Eo "[0-9]+")
   FAIL2BAN=false
   echo "Checking for f2b"
